@@ -1,0 +1,306 @@
+/* index.css */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cedarville+Cursive&family=Merienda:wght@300..900&family=Pacifico&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cedarville+Cursive&family=Merienda:wght@300..900&family=Pacifico&family=Sriracha&display=swap");
+
+/* Tailwind Base Styles */
+@import "tailwindcss/base";
+
+/* Tailwind Component Styles */
+@import "tailwindcss/components";
+
+/* Tailwind Utility Styles */
+@import "tailwindcss/utilities";
+
+/* smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Background Styles with Images */
+.about-bg-light,
+.about-bg-dark {
+  background-image: url("./assets/coffee-texture.jpg.jpeg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+}
+
+.about-bg-dark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1;
+}
+
+.about-bg-light::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 1;
+}
+
+.contact-bg-light,
+.contact-bg-dark {
+  background-image: url("./assets/coffee-beans-bg.jpg.jpeg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+}
+
+.contact-bg-dark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+
+.contact-bg-light::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 1;
+}
+
+.footer-bg-light,
+.footer-bg-dark {
+  background-image: url("./assets/coffee-pattern.jpg.jpeg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+}
+
+.footer-bg-dark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1;
+}
+
+.footer-bg-light::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+/* Ensure content stays above overlay */
+.bg-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* Coffee Steam Animation */
+@keyframes steam {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+    opacity: 0.1;
+  }
+  100% {
+    transform: translateY(-40px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.animate-steam {
+  animation: steam 3s infinite ease-out;
+}
+
+.animation-delay-500 {
+  animation-delay: 0.5s;
+}
+
+.animation-delay-1000 {
+  animation-delay: 1s;
+}
+
+.testimonials-bg-light,
+.testimonials-bg-dark {
+  background-image: url("./assets/coffee-background-new.jpg.avif");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+}
+
+.testimonials-bg-dark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+
+.testimonials-bg-light::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 1;
+}
+
+.menu-bg-light,
+.menu-bg-dark {
+  background-image: url("./assets/coffee-background-new.jpg.avif");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+}
+
+.menu-bg-dark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.menu-bg-light::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.05);
+  z-index: 1;
+}
+
+/* Custom Button Classes */
+.btn-primary {
+  background: linear-gradient(to right, rgb(217, 119, 6), rgb(234, 88, 12));
+  color: white;
+  transform: translateY(0);
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, rgb(180, 83, 9), rgb(194, 65, 12));
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary {
+  border: 2px solid rgb(245, 158, 11);
+  color: rgb(245, 158, 11);
+  transform: translateY(0);
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+.btn-secondary:hover {
+  background-color: rgb(245, 158, 11);
+  color: rgb(31, 41, 55);
+  transform: translateY(-2px);
+}
+
+.btn-outline {
+  border: 2px solid rgb(209, 213, 219);
+  color: rgb(55, 65, 81);
+  transform: translateY(0);
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+.dark .btn-outline {
+  border-color: rgb(75, 85, 99);
+  color: rgb(209, 213, 219);
+}
+
+.btn-outline:hover {
+  border-color: rgb(245, 158, 11);
+  color: rgb(245, 158, 11);
+}
+
+.dark .btn-outline:hover {
+  color: rgb(251, 191, 36);
+}
+
+/* Pulse animation for CTA buttons */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.8);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Shine effect */
+.shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-effect::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.shine-effect:hover::before {
+  left: 100%;
+}
