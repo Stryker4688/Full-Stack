@@ -1,74 +1,80 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
 import { TrendingDown, TrendingUp, Minus, AlertTriangle } from "lucide-react";
 
+// داده‌های اولیه ثابت برای جلوگیری از تفاوت در هیدراسیون
+const initialStockData = [
+  {
+    id: 1,
+    name: "Ethiopian Yirgacheffe",
+    stock: 8,
+    trend: "decreasing",
+    sku: "ETH-YIRG-2024",
+    lastUpdated: new Date().toISOString(),
+    popularity: "high",
+    restockDate: "2024-02-15",
+  },
+  {
+    id: 2,
+    name: "Colombian Supremo",
+    stock: 23,
+    trend: "stable",
+    sku: "COL-SUP-2024",
+    lastUpdated: new Date().toISOString(),
+    popularity: "medium",
+    restockDate: "2024-02-20",
+  },
+  {
+    id: 3,
+    name: "Kenya AA",
+    stock: 3,
+    trend: "decreasing",
+    sku: "KEN-AA-2024",
+    lastUpdated: new Date().toISOString(),
+    popularity: "high",
+    restockDate: "2024-02-10",
+  },
+  {
+    id: 4,
+    name: "Brazil Santos",
+    stock: 45,
+    trend: "stable",
+    sku: "BRA-SAN-2024",
+    lastUpdated: new Date().toISOString(),
+    popularity: "low",
+    restockDate: "2024-03-01",
+  },
+  {
+    id: 5,
+    name: "Guatemala Antigua",
+    stock: 12,
+    trend: "decreasing",
+    sku: "GUA-ANT-2024",
+    lastUpdated: new Date().toISOString(),
+    popularity: "medium",
+    restockDate: "2024-02-18",
+  },
+  {
+    id: 6,
+    name: "Sumatra Mandheling",
+    stock: 6,
+    trend: "decreasing",
+    sku: "SUM-MAN-2024",
+    lastUpdated: new Date().toISOString(),
+    popularity: "high",
+    restockDate: "2024-02-12",
+  },
+];
+
 const LiveStock: React.FC = () => {
   const { isDark } = useTheme();
-  const [stock, setStock] = useState([
-    {
-      id: 1,
-      name: "Ethiopian Yirgacheffe",
-      stock: 8,
-      trend: "decreasing",
-      sku: "ETH-YIRG-2024",
-      lastUpdated: new Date().toISOString(),
-      popularity: "high",
-      restockDate: "2024-02-15",
-    },
-    {
-      id: 2,
-      name: "Colombian Supremo",
-      stock: 23,
-      trend: "stable",
-      sku: "COL-SUP-2024",
-      lastUpdated: new Date().toISOString(),
-      popularity: "medium",
-      restockDate: "2024-02-20",
-    },
-    {
-      id: 3,
-      name: "Kenya AA",
-      stock: 3,
-      trend: "decreasing",
-      sku: "KEN-AA-2024",
-      lastUpdated: new Date().toISOString(),
-      popularity: "high",
-      restockDate: "2024-02-10",
-    },
-    {
-      id: 4,
-      name: "Brazil Santos",
-      stock: 45,
-      trend: "stable",
-      sku: "BRA-SAN-2024",
-      lastUpdated: new Date().toISOString(),
-      popularity: "low",
-      restockDate: "2024-03-01",
-    },
-    {
-      id: 5,
-      name: "Guatemala Antigua",
-      stock: 12,
-      trend: "decreasing",
-      sku: "GUA-ANT-2024",
-      lastUpdated: new Date().toISOString(),
-      popularity: "medium",
-      restockDate: "2024-02-18",
-    },
-    {
-      id: 6,
-      name: "Sumatra Mandheling",
-      stock: 6,
-      trend: "decreasing",
-      sku: "SUM-MAN-2024",
-      lastUpdated: new Date().toISOString(),
-      popularity: "high",
-      restockDate: "2024-02-12",
-    },
-  ]);
+  const [stock, setStock] = useState(initialStockData);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Structured data for SEO
+  // Structured data for SEO - با داده‌های ثابت
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "ItemAvailability",
@@ -76,7 +82,7 @@ const LiveStock: React.FC = () => {
     description:
       "Real-time inventory tracking for premium specialty coffee beans. Monitor stock levels and availability for our most popular single-origin coffees.",
     url: "https://brewhaven.com/stock",
-    itemListElement: stock.map((item) => ({
+    itemListElement: initialStockData.map((item) => ({
       "@type": "Product",
       name: item.name,
       sku: item.sku,
@@ -95,8 +101,27 @@ const LiveStock: React.FC = () => {
     })),
   };
 
-  // Simulate real-time updates
+  // برای جلوگیری از هیدراسیون، فقط در کلاینت mount شود
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // تابع برای نمایش زمان به صورت ثابت
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    // استفاده از locale ثابت و فرمت 24 ساعته برای یکسانی در سرور و کلاینت
+    return date.toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  // Simulate real-time updates - فقط در کلاینت
+  useEffect(() => {
+    if (!isMounted) return;
+
     const interval = setInterval(() => {
       setStock((prev) =>
         prev.map((item) => {
@@ -124,7 +149,7 @@ const LiveStock: React.FC = () => {
     }, 15000); // Update every 15 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isMounted]);
 
   const getStockStatus = (stock: number, popularity: string) => {
     if (stock === 0)
@@ -182,9 +207,12 @@ const LiveStock: React.FC = () => {
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
+      {isMounted && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      )}
 
       <section
         aria-labelledby="live-stock-heading"
@@ -324,8 +352,8 @@ const LiveStock: React.FC = () => {
                       <span
                         className={isDark ? "text-gray-500" : "text-gray-400"}
                       >
-                        Updated:{" "}
-                        {new Date(item.lastUpdated).toLocaleTimeString()}
+                        {/* استفاده از تابع formatTime برای یکسانی فرمت زمان */}
+                        Updated: {formatTime(item.lastUpdated)}
                       </span>
                     </div>
 
@@ -339,7 +367,9 @@ const LiveStock: React.FC = () => {
                           }
                         >
                           Restock:{" "}
-                          {new Date(item.restockDate).toLocaleDateString()}
+                          {new Date(item.restockDate).toLocaleDateString(
+                            "en-US"
+                          )}
                         </span>
                       </div>
                     )}

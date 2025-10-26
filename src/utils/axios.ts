@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api',
+    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001/api',
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
@@ -21,7 +21,7 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Handle responses - FIXED: خطاها را به درستی مدیریت می‌کند
+// Handle responses
 api.interceptors.response.use(
     (response) => response,
     (error) => {

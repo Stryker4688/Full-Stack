@@ -6,7 +6,7 @@ import CoffeeRecommender from "../components/sections/CoffeeRecommender";
 import About from "../components/sections/About";
 import LiveStock from "../components/sections/LiveStock";
 import Menu from "../components/sections/Menu";
-import Testimonials from "../components/sections/Testimonials";
+import Testimonials from "../components/sections/Testimonials"; 
 import Contact from "../components/sections/Contact";
 
 const Home: React.FC = () => {

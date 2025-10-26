@@ -1,7 +1,7 @@
+// src/components/sections/Hero.tsx
+"use client";
 import React from "react";
-import coffee from "../../assets/coffee5.png";
-import Bean1 from "../../assets/bean1.png";
-import Bean2 from "../../assets/bean2.png";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -35,9 +35,10 @@ const Hero: React.FC = () => {
 
   return (
     <>
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
 
       <section
         aria-labelledby="hero-heading"
@@ -104,28 +105,36 @@ const Hero: React.FC = () => {
               transition={{ duration: 1.4, delay: 0.8 }}
               className="flex gap-2"
             >
-              <a href="#menu">
-                <button
-                  className={`px-3 py-2 rounded-md transition-colors ${
-                    isDark
-                      ? "bg-amber-600 text-white hover:bg-amber-500"
-                      : "bg-amber-900 text-white hover:bg-amber-800"
-                  }`}
-                >
-                  Shop Coffee Beans
-                </button>
-              </a>
-              <a href="#about">
-                <button
-                  className={`border rounded-md px-3 py-2 transition-colors ${
-                    isDark
-                      ? "border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-gray-900"
-                      : "border-amber-900 text-amber-900 hover:bg-amber-900 hover:text-white"
-                  }`}
-                >
-                  Our Story
-                </button>
-              </a>
+              <button
+                onClick={() => {
+                  const element = document.querySelector("#menu");
+                  if (element) {
+                    element.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  isDark
+                    ? "bg-amber-600 text-white hover:bg-amber-500"
+                    : "bg-amber-900 text-white hover:bg-amber-800"
+                }`}
+              >
+                Shop Coffee Beans
+              </button>
+              <button
+                onClick={() => {
+                  const element = document.querySelector("#about");
+                  if (element) {
+                    element.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className={`border rounded-md px-3 py-2 transition-colors ${
+                  isDark
+                    ? "border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-gray-900"
+                    : "border-amber-900 text-amber-900 hover:bg-amber-900 hover:text-white"
+                }`}
+              >
+                Our Story
+              </button>
             </motion.div>
 
             {/* Trust Indicators */}
@@ -176,14 +185,22 @@ const Hero: React.FC = () => {
 
           {/* image section */}
           <div className="relative">
-            <motion.img
+            <motion.div
               initial={{ opacity: 0, scale: 0.5 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.5, delay: 0.5 }}
-              src={coffee}
-              alt="Premium specialty coffee beans from Brew Haven - fresh roasted coffee ready for brewing"
-              className="w-[500px] relative z-10"
-            />
+              className="relative z-10"
+            >
+              <Image
+                src="/assets/coffee5-BIzYKsk9.png"
+                alt="Premium specialty coffee beans from Brew Haven"
+                width={500}
+                height={400}
+                className="w-[500px]"
+                priority
+              />
+            </motion.div>
+
             {/* Coffee Steam Effect for Dark Mode */}
             {isDark && (
               <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-32">
@@ -195,30 +212,49 @@ const Hero: React.FC = () => {
           </div>
 
           {/* Bean decorations */}
-          <motion.img
+          <motion.div
             initial={{ opacity: 0, x: 400, scale: 0.7 }}
             whileInView={{ opacity: 1, x: 0, scale: 1, rotate: 45 }}
             transition={{ duration: 1.8, delay: 0.8 }}
-            src={Bean2}
-            alt="Coffee bean decoration"
-            className="absolute hidden md:block bottom-20 left-36 z-10 w-20 rotate-45"
-          />
-          <motion.img
+            className="absolute hidden md:block bottom-20 left-36 z-10"
+          >
+            <Image
+              src="/assets/bean2-Ds0BmXCf.png"
+              alt="Coffee bean decoration"
+              width={80}
+              height={80}
+              className="rotate-45"
+            />
+          </motion.div>
+
+          <motion.div
             initial={{ opacity: 0, x: 600, y: 200, scale: 0.7 }}
             whileInView={{ opacity: 1, x: 0, y: 0, scale: 1 }}
             transition={{ duration: 1.8, delay: 0.8 }}
-            src={Bean1}
-            alt="Coffee bean decoration"
-            className="absolute hidden md:block top-14 left-0 z-10 w-20"
-          />
-          <motion.img
+            className="absolute hidden md:block top-14 left-0 z-10"
+          >
+            <Image
+              src="/assets/bean1-CICH2q0y.png"
+              alt="Coffee bean decoration"
+              width={80}
+              height={80}
+            />
+          </motion.div>
+
+          <motion.div
             initial={{ opacity: 0, x: -100, y: 100, scale: 0.7 }}
             whileInView={{ opacity: 1, x: 0, y: 0, scale: 1, rotate: 45 }}
             transition={{ duration: 1.8, delay: 0.8 }}
-            src={Bean2}
-            alt="Coffee bean decoration"
-            className="absolute hidden md:block w-20 top-0 right-0 z-10 -rotate-45"
-          />
+            className="absolute hidden md:block top-0 right-0 z-10"
+          >
+            <Image
+              src="/assets/bean2-Ds0BmXCf.png"
+              alt="Coffee bean decoration"
+              width={80}
+              height={80}
+              className="-rotate-45"
+            />
+          </motion.div>
         </div>
       </section>
     </>

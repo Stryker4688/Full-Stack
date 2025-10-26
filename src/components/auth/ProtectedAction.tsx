@@ -1,7 +1,8 @@
 // components/ProtectedAction.tsx
+"use client";
 import React from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
 interface ProtectedActionProps {
@@ -18,19 +19,17 @@ const ProtectedAction: React.FC<ProtectedActionProps> = ({
   className = "",
 }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleAction = (e: React.MouseEvent) => {
     e?.stopPropagation();
 
     if (!user) {
       // Redirect to login with return URL
-      navigate("/login", {
-        state: {
-          from: window.location.pathname,
-          message,
-        },
-      });
+      const currentPath = window.location.pathname;
+      router.push(
+        `/login?from=${currentPath}&message=${encodeURIComponent(message)}`
+      );
       return;
     }
 

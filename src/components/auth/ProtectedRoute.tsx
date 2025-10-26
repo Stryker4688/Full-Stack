@@ -1,6 +1,7 @@
 // components/ProtectedRoute.tsx
+"use client";
 import React from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
@@ -10,15 +11,15 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
-  const location = useLocation();
+  const router = useRouter();
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
   if (!user) {
-    // Redirect to login page with return url
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    router.push("/login");
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;

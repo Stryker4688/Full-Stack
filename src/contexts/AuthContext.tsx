@@ -1,8 +1,10 @@
 // src/contexts/AuthContext.tsx
+"use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import api from "../utils/axios";
+import { useToast } from "./ToastContext";
 
 interface User {
   id: string;
@@ -41,7 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { addToast } = useToast();
 
   useEffect(() => {
     const savedToken = localStorage.getItem("authToken");
@@ -55,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearError = () => setError(null);
 
-  // Login mutation - FIXED: استفاده درست از error response
+  // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: {
       email: string;
@@ -73,18 +76,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("authToken", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       queryClient.setQueryData(["user"], data.user);
-      navigate("/", { replace: true });
+
+      addToast({
+        type: "success",
+        title: "Login Successful!",
+        message: `Welcome back ${data.user.name} 👋`,
+        duration: 4000,
+      });
+
+      router.push("/");
     },
     onError: (error: any) => {
       console.log("❌ Login onError - Full error:", error);
-      // گرفتن پیام خطا از data.message
       const errorMessage = error.response?.data?.message || "Login failed";
-      console.log("❌ Login onError - Setting error:", errorMessage);
       setError(errorMessage);
+
+      addToast({
+        type: "error",
+        title: "Login Failed",
+        message: "Invalid email or password",
+        duration: 5000,
+      });
     },
   });
 
-  // Register mutation - FIXED: استفاده درست از error response
+  // Register mutation
   const registerMutation = useMutation({
     mutationFn: async (userData: {
       name: string;
@@ -103,15 +119,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("authToken", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       queryClient.setQueryData(["user"], data.user);
-      navigate("/", { replace: true });
+
+      addToast({
+        type: "success",
+        title: "Account Created!",
+        message: `Welcome to Brew Haven ${data.user.name} 🎉`,
+        duration: 4000,
+      });
+
+      router.push("/");
     },
     onError: (error: any) => {
       console.log("❌ Register onError - Full error:", error);
-      // گرفتن پیام خطا از data.message
       const errorMessage =
         error.response?.data?.message || "Registration failed";
-      console.log("❌ Register onError - Setting error:", errorMessage);
       setError(errorMessage);
+
+      addToast({
+        type: "error",
+        title: "Registration Failed",
+        message: errorMessage,
+        duration: 5000,
+      });
     },
   });
 
@@ -144,7 +173,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
     queryClient.clear();
-    navigate("/");
+
+    addToast({
+      type: "info",
+      title: "Logout Successful",
+      message: "You have been logged out successfully",
+      duration: 3000,
+    });
+
+    router.push("/");
   };
 
   const loading = loginMutation.isPending || registerMutation.isPending;

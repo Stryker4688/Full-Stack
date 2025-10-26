@@ -1,3 +1,4 @@
+// src/components/layout/Footer.tsx
 import React from "react";
 import {
   FaFacebook,
@@ -20,7 +21,7 @@ interface FooterLink {
 const FooterLinks: FooterLink[] = [
   {
     title: "Home",
-    link: "/#",
+    link: "/",
   },
   {
     title: "Menu",
@@ -29,6 +30,10 @@ const FooterLinks: FooterLink[] = [
   {
     title: "About",
     link: "#about",
+  },
+  {
+    title: "Testimonials", // اضافه شد
+    link: "#testimonial",
   },
   {
     title: "Contact",
@@ -45,6 +50,31 @@ const socialLinks = [
 
 const Footer: React.FC = () => {
   const { isDark } = useTheme();
+
+  const handleFooterClick = (link: string, e: React.MouseEvent) => {
+    e.preventDefault();
+
+    if (link === "/") {
+      // Handle Home click
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.history.pushState(null, "", "/");
+    } else if (link.startsWith("#")) {
+      // Handle section scroll
+      const element = document.querySelector(link);
+      if (element) {
+        const elementPosition =
+          element.getBoundingClientRect().top + window.pageYOffset;
+        const offsetPosition = elementPosition - 80;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth",
+        });
+
+        window.history.pushState(null, "", link);
+      }
+    }
+  };
 
   return (
     <div
@@ -102,7 +132,8 @@ const Footer: React.FC = () => {
                     <li key={index}>
                       <a
                         href={data.link}
-                        className="text-gray-300 hover:text-amber-300 transition-colors duration-300 flex items-center group"
+                        onClick={(e) => handleFooterClick(data.link, e)}
+                        className="text-gray-300 hover:text-amber-300 transition-colors duration-300 flex items-center group cursor-pointer"
                       >
                         <span className="w-2 h-2 bg-amber-400 rounded-full mr-3 group-hover:scale-150 transition-transform duration-300"></span>
                         {data.title}

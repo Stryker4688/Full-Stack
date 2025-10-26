@@ -1,52 +1,49 @@
+"use client";
+
 import React from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Star, Award, Zap } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../utils/axios";
+
+interface Offer {
+  id: number;
+  title: string;
+  description: string;
+  price: string;
+  originalPrice: string;
+  badge: string;
+  icon: string;
+  gradient: string;
+  features: string[];
+  sku: string;
+  availability: string;
+}
 
 const SpecialOffers: React.FC = () => {
   const { isDark } = useTheme();
 
-  const offers = [
-    {
-      id: 1,
-      title: "Coffee Lover's Bundle",
-      description: "Get 3 different premium beans with 20% discount",
-      price: "$59.99",
-      originalPrice: "$74.97",
-      badge: "Most Popular",
-      icon: Star,
-      gradient: "from-amber-500 to-orange-500",
-      features: ["3 Premium Beans", "Free Grinding", "Recipe Guide"],
-      sku: "BUNDLE-3BEANS",
-      availability: "InStock",
+  const { data: offers = [], isLoading } = useQuery({
+    queryKey: ["offers"],
+    queryFn: async (): Promise<Offer[]> => {
+      const response = await api.get("/offers");
+      return response.data;
     },
-    {
-      id: 2,
-      title: "Single Origin Collection",
-      description: "Experience 5 unique single-origin coffees",
-      price: "$89.99",
-      originalPrice: "$112.45",
-      badge: "Limited Edition",
-      icon: Award,
-      gradient: "from-purple-500 to-pink-500",
-      features: ["5 Single Origins", "Tasting Notes", "Origin Stories"],
-      sku: "COLLECTION-5ORIGINS",
-      availability: "InStock",
-    },
-    {
-      id: 3,
-      title: "Monthly Subscription",
-      description: "Fresh beans delivered to your door every month",
-      price: "$29.99/month",
-      originalPrice: "$37.50",
-      badge: "Best Value",
-      icon: Zap,
-      gradient: "from-green-500 to-emerald-500",
-      features: ["Monthly Delivery", "Free Shipping", "Cancel Anytime"],
-      sku: "SUBSCRIPTION-MONTHLY",
-      availability: "InStock",
-    },
-  ];
+  });
+
+  const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+      case "Star":
+        return Star;
+      case "Award":
+        return Award;
+      case "Zap":
+        return Zap;
+      default:
+        return Star;
+    }
+  };
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -54,7 +51,7 @@ const SpecialOffers: React.FC = () => {
     name: "Special Coffee Offers - Brew Haven",
     description:
       "Exclusive coffee bundles, collections, and subscription offers for coffee enthusiasts",
-    numberOfItems: 3,
+    numberOfItems: offers.length,
     itemListElement: offers.map((offer, index) => ({
       "@type": "Offer",
       position: index + 1,
@@ -78,11 +75,22 @@ const SpecialOffers: React.FC = () => {
     })),
   };
 
+  if (isLoading) {
+    return (
+      <section className={`py-20 ${isDark ? "bg-gray-900" : "bg-amber-50"}`}>
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center">Loading offers...</div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
 
       <section
         aria-labelledby="special-offers-heading"
@@ -142,129 +150,134 @@ const SpecialOffers: React.FC = () => {
             role="list"
             aria-label="Special coffee offers"
           >
-            {offers.map((offer, index) => (
-              <motion.article
-                key={offer.id}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-                whileHover={{
-                  scale: 1.05,
-                  y: -10,
-                  transition: { duration: 0.3 },
-                }}
-                role="listitem"
-                itemScope
-                itemType="https://schema.org/Offer"
-                className={`relative rounded-2xl overflow-hidden shadow-2xl ${
-                  isDark ? "bg-gray-800/80" : "bg-white/90"
-                } backdrop-blur-sm border ${
-                  isDark ? "border-amber-500/30" : "border-amber-200"
-                } group`}
-              >
-                <meta
-                  itemProp="price"
-                  content={offer.price.replace("$", "").replace("/month", "")}
-                />
-                <meta itemProp="priceCurrency" content="USD" />
-                <meta
-                  itemProp="availability"
-                  content={`https://schema.org/${offer.availability}`}
-                />
-
-                {/* Badge */}
-                <div className="absolute top-4 right-4 z-10">
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-bold ${
-                      offer.gradient.includes("amber")
-                        ? "bg-amber-500 text-white"
-                        : offer.gradient.includes("purple")
-                        ? "bg-purple-500 text-white"
-                        : "bg-green-500 text-white"
-                    }`}
-                  >
-                    {offer.badge}
-                  </span>
-                </div>
-
-                {/* Header with Gradient */}
-                <div
-                  className={`bg-gradient-to-r ${offer.gradient} p-6 text-white`}
+            {offers.map((offer, index) => {
+              const IconComponent = getIconComponent(offer.icon);
+              return (
+                <motion.article
+                  key={offer.id}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: index * 0.2 }}
+                  whileHover={{
+                    scale: 1.05,
+                    y: -10,
+                    transition: { duration: 0.3 },
+                  }}
+                  role="listitem"
+                  itemScope
+                  itemType="https://schema.org/Offer"
+                  className={`relative rounded-2xl overflow-hidden shadow-2xl ${
+                    isDark ? "bg-gray-800/80" : "bg-white/90"
+                  } backdrop-blur-sm border ${
+                    isDark ? "border-amber-500/30" : "border-amber-200"
+                  } group`}
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    <offer.icon className="w-8 h-8" />
-                    <h3
-                      className="text-2xl font-bold font-cursive"
-                      itemProp="name"
-                    >
-                      {offer.title}
-                    </h3>
-                  </div>
-                  <p className="text-amber-100" itemProp="description">
-                    {offer.description}
-                  </p>
-                </div>
+                  <meta
+                    itemProp="price"
+                    content={offer.price.replace("$", "").replace("/month", "")}
+                  />
+                  <meta itemProp="priceCurrency" content="USD" />
+                  <meta
+                    itemProp="availability"
+                    content={`https://schema.org/${offer.availability}`}
+                  />
 
-                {/* Content */}
-                <div className="p-6">
-                  {/* Price */}
-                  <div className="flex items-baseline gap-2 mb-4">
+                  {/* Badge */}
+                  <div className="absolute top-4 right-4 z-10">
                     <span
-                      className={`text-3xl font-bold ${
-                        isDark ? "text-amber-400" : "text-amber-900"
-                      }`}
-                      itemProp="price"
-                    >
-                      {offer.price}
-                    </span>
-                    <span
-                      className={`text-lg line-through ${
-                        isDark ? "text-gray-400" : "text-gray-500"
+                      className={`px-3 py-1 rounded-full text-sm font-bold ${
+                        offer.gradient.includes("amber")
+                          ? "bg-amber-500 text-white"
+                          : offer.gradient.includes("purple")
+                          ? "bg-purple-500 text-white"
+                          : "bg-green-500 text-white"
                       }`}
                     >
-                      {offer.originalPrice}
+                      {offer.badge}
                     </span>
                   </div>
 
-                  {/* Features */}
-                  <ul className="space-y-2 mb-6" aria-label="Offer features">
-                    {offer.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            isDark ? "bg-amber-400" : "bg-amber-600"
-                          }`}
-                        />
-                        <span
-                          className={isDark ? "text-gray-300" : "text-gray-700"}
-                        >
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* CTA Button */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`w-full py-3 rounded-lg font-bold text-lg ${
-                      offer.gradient.includes("amber")
-                        ? "bg-amber-600 hover:bg-amber-500"
-                        : offer.gradient.includes("purple")
-                        ? "bg-purple-600 hover:bg-purple-500"
-                        : "bg-green-600 hover:bg-green-500"
-                    } text-white transition-colors`}
-                    aria-label={`Get the ${offer.title} offer`}
+                  {/* Header with Gradient */}
+                  <div
+                    className={`bg-gradient-to-r ${offer.gradient} p-6 text-white`}
                   >
-                    Get This Offer
-                  </motion.button>
-                </div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <IconComponent className="w-8 h-8" />
+                      <h3
+                        className="text-2xl font-bold font-cursive"
+                        itemProp="name"
+                      >
+                        {offer.title}
+                      </h3>
+                    </div>
+                    <p className="text-amber-100" itemProp="description">
+                      {offer.description}
+                    </p>
+                  </div>
 
-                {/* Shine Effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-              </motion.article>
-            ))}
+                  {/* Content */}
+                  <div className="p-6">
+                    {/* Price */}
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span
+                        className={`text-3xl font-bold ${
+                          isDark ? "text-amber-400" : "text-amber-900"
+                        }`}
+                        itemProp="price"
+                      >
+                        {offer.price}
+                      </span>
+                      <span
+                        className={`text-lg line-through ${
+                          isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        {offer.originalPrice}
+                      </span>
+                    </div>
+
+                    {/* Features */}
+                    <ul className="space-y-2 mb-6" aria-label="Offer features">
+                      {offer.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              isDark ? "bg-amber-400" : "bg-amber-600"
+                            }`}
+                          />
+                          <span
+                            className={
+                              isDark ? "text-gray-300" : "text-gray-700"
+                            }
+                          >
+                            {feature}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* CTA Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`w-full py-3 rounded-lg font-bold text-lg ${
+                        offer.gradient.includes("amber")
+                          ? "bg-amber-600 hover:bg-amber-500"
+                          : offer.gradient.includes("purple")
+                          ? "bg-purple-600 hover:bg-purple-500"
+                          : "bg-green-600 hover:bg-green-500"
+                      } text-white transition-colors`}
+                      aria-label={`Get the ${offer.title} offer`}
+                    >
+                      Get This Offer
+                    </motion.button>
+                  </div>
+
+                  {/* Shine Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                </motion.article>
+              );
+            })}
           </div>
 
           {/* Bottom CTA */}

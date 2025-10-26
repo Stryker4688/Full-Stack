@@ -1,12 +1,31 @@
-import React from "react";
-import Lottie from "lottie-react";
-import coffee from "../../assets/Coffeeanime.json";
+// src/components/sections/About.tsx
+"use client";
+import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Award, Users, Globe, Heart, Coffee, Star } from "lucide-react";
 
+// Lottie رو با dynamic import بیار که فقط در client-side لود بشه
+const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
+
+// نوع داده‌ای برای animationData
+interface AnimationData {
+  [key: string]: any;
+}
+
 const About: React.FC = () => {
   const { isDark } = useTheme();
+  const [animationData, setAnimationData] = useState<AnimationData | null>(
+    null
+  );
+
+  useEffect(() => {
+    // فقط در client-side فایل JSON رو لود کن
+    import("../../assets/Coffeeanime.json").then((data) => {
+      setAnimationData(data.default);
+    });
+  }, []);
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -109,9 +128,10 @@ const About: React.FC = () => {
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
 
       <section
         id="about"
@@ -163,11 +183,17 @@ const About: React.FC = () => {
                 transition={{ duration: 1.5, delay: 0.3 }}
                 className="lg:w-1/2 flex justify-center"
               >
-                <Lottie
-                  animationData={coffee}
-                  className="w-full max-w-lg"
-                  loop={true}
-                />
+                {animationData ? (
+                  <Lottie
+                    animationData={animationData}
+                    className="w-full max-w-lg"
+                    loop={true}
+                  />
+                ) : (
+                  <div className="w-full max-w-lg h-64 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center">
+                    <Coffee className="w-16 h-16 text-amber-600 dark:text-amber-400" />
+                  </div>
+                )}
               </motion.div>
 
               {/* Story Content */}
@@ -446,8 +472,13 @@ const About: React.FC = () => {
                   transition={{ duration: 0.8, delay: 0.6 }}
                   className="mt-8 flex flex-col sm:flex-row gap-4 justify-center"
                 >
-                  <motion.a
-                    href="#menu"
+                  <motion.button
+                    onClick={() => {
+                      const element = document.querySelector("#menu");
+                      if (element) {
+                        element.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`px-8 py-3 rounded-lg font-semibold ${
@@ -457,9 +488,14 @@ const About: React.FC = () => {
                     } transition-colors`}
                   >
                     Explore Our Coffees
-                  </motion.a>
-                  <motion.a
-                    href="#contact"
+                  </motion.button>
+                  <motion.button
+                    onClick={() => {
+                      const element = document.querySelector("#contact");
+                      if (element) {
+                        element.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`px-8 py-3 rounded-lg font-semibold border ${
@@ -469,7 +505,7 @@ const About: React.FC = () => {
                     } transition-colors`}
                   >
                     Visit Our Roastery
-                  </motion.a>
+                  </motion.button>
                 </motion.div>
               </div>
             </motion.section>

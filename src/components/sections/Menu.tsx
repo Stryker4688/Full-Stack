@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -5,174 +7,14 @@ import { useCart } from "../../contexts/CartContext";
 import { Search, Star, Globe, Zap, Thermometer } from "lucide-react";
 import ProtectedAction from "../auth/ProtectedAction";
 import { useAuth } from "../../contexts/AuthContext";
-
-interface CoffeeBean {
-  id: number;
-  name: string;
-  origin: string;
-  roast: "light" | "medium" | "medium-dark" | "dark" | "espresso";
-  price: number;
-  weight: number;
-  description: string;
-  flavorNotes: string[];
-  acidity: "low" | "medium" | "high";
-  body: "light" | "medium" | "full";
-  processing: "washed" | "natural" | "honey";
-  elevation: number;
-  image: string;
-  rating: number;
-  stock: number;
-  featured: boolean;
-  score: number;
-  brewMethods: string[];
-  harvest: string;
-  varietal: string;
-}
-
-const CoffeeData: CoffeeBean[] = [
-  {
-    id: 1,
-    name: "Ethiopian Yirgacheffe",
-    origin: "Ethiopia",
-    roast: "light",
-    price: 24.99,
-    weight: 250,
-    description:
-      "Floral and tea-like with citrus notes, this light roast showcases the delicate flavors of Ethiopian beans from the birthplace of coffee.",
-    flavorNotes: ["Bergamot", "Jasmine", "Lemon Zest", "Tea-like"],
-    acidity: "high",
-    body: "light",
-    processing: "washed",
-    elevation: 2000,
-    image: "/api/placeholder/300/200",
-    rating: 4.8,
-    stock: 8,
-    featured: true,
-    score: 92,
-    brewMethods: ["Pour Over", "Aeropress", "Cold Brew"],
-    harvest: "Winter 2023",
-    varietal: "Heirloom",
-  },
-  {
-    id: 2,
-    name: "Colombian Supremo",
-    origin: "Colombia",
-    roast: "medium",
-    price: 19.99,
-    weight: 250,
-    description:
-      "Well-balanced with caramel sweetness and nutty undertones. A classic crowd-pleaser from the Andes mountains.",
-    flavorNotes: ["Milk Chocolate", "Caramel", "Hazelnut", "Brown Sugar"],
-    acidity: "medium",
-    body: "medium",
-    processing: "washed",
-    elevation: 1600,
-    image: "/api/placeholder/300/200",
-    rating: 4.6,
-    stock: 23,
-    featured: false,
-    score: 87,
-    brewMethods: ["Espresso", "Drip", "French Press"],
-    harvest: "Spring 2023",
-    varietal: "Caturra",
-  },
-  {
-    id: 3,
-    name: "Sumatra Mandheling",
-    origin: "Indonesia",
-    roast: "dark",
-    price: 22.99,
-    weight: 250,
-    description:
-      "Bold and earthy with low acidity. Perfect for those who enjoy robust, full-bodied coffee from volcanic soils.",
-    flavorNotes: ["Earthy", "Cedar", "Dark Chocolate", "Spicy"],
-    acidity: "low",
-    body: "full",
-    processing: "natural",
-    elevation: 1400,
-    image: "/api/placeholder/300/200",
-    rating: 4.7,
-    stock: 18,
-    featured: true,
-    score: 85,
-    brewMethods: ["French Press", "Moka Pot", "Espresso"],
-    harvest: "Summer 2023",
-    varietal: "Typica",
-  },
-  {
-    id: 4,
-    name: "Kenya AA",
-    origin: "Kenya",
-    roast: "light",
-    price: 26.99,
-    weight: 250,
-    description:
-      "Bright and wine-like with berry notes. Known for its complex acidity and clean finish from high-altitude farms.",
-    flavorNotes: ["Black Currant", "Grape", "Tomato", "Bright"],
-    acidity: "high",
-    body: "medium",
-    processing: "washed",
-    elevation: 1700,
-    image: "/api/placeholder/300/200",
-    rating: 4.9,
-    stock: 12,
-    featured: true,
-    score: 94,
-    brewMethods: ["Pour Over", "Aeropress", "Cold Brew"],
-    harvest: "Winter 2023",
-    varietal: "SL28",
-  },
-  {
-    id: 5,
-    name: "Brazil Santos",
-    origin: "Brazil",
-    roast: "medium",
-    price: 17.99,
-    weight: 250,
-    description:
-      "Smooth and nutty with low acidity. Excellent for espresso blends and everyday drinking from Brazil's finest regions.",
-    flavorNotes: ["Nutty", "Chocolate", "Smooth", "Sweet"],
-    acidity: "low",
-    body: "medium",
-    processing: "natural",
-    elevation: 1100,
-    image: "/api/placeholder/300/200",
-    rating: 4.5,
-    stock: 30,
-    featured: false,
-    score: 84,
-    brewMethods: ["Espresso", "Drip", "French Press"],
-    harvest: "Spring 2023",
-    varietal: "Bourbon",
-  },
-  {
-    id: 6,
-    name: "Guatemala Antigua",
-    origin: "Guatemala",
-    roast: "medium-dark",
-    price: 23.99,
-    weight: 250,
-    description:
-      "Complex with spicy and chocolate notes. Grown in the volcanic soils of Antigua valley for exceptional complexity.",
-    flavorNotes: ["Spicy", "Chocolate", "Citrus", "Complex"],
-    acidity: "medium",
-    body: "full",
-    processing: "washed",
-    elevation: 1500,
-    image: "/api/placeholder/300/200",
-    rating: 4.7,
-    stock: 20,
-    featured: false,
-    score: 88,
-    brewMethods: ["Pour Over", "French Press", "Espresso"],
-    harvest: "Spring 2023",
-    varietal: "Catuai",
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import api from "../../utils/axios";
+import { CoffeeBean } from "../../types";
 
 const Menu: React.FC = () => {
   const { isDark } = useTheme();
   const { addToCart } = useCart();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRoast, setSelectedRoast] = useState<string>("all");
   const [selectedOrigin, setSelectedOrigin] = useState<string>("all");
@@ -180,7 +22,14 @@ const Menu: React.FC = () => {
   const [sortBy, setSortBy] = useState<"name" | "price" | "rating" | "score">(
     "name"
   );
-  const { user } = useAuth();
+
+  const { data: coffeeData = [], isLoading } = useQuery({
+    queryKey: ["coffee-products"],
+    queryFn: async (): Promise<CoffeeBean[]> => {
+      const response = await api.get("/products");
+      return response.data;
+    },
+  });
 
   // Structured data for SEO
   const structuredData = {
@@ -189,8 +38,8 @@ const Menu: React.FC = () => {
     name: "Premium Specialty Coffee Beans Menu - Brew Haven",
     description:
       "Browse our curated collection of single-origin specialty coffee beans from the world's finest growing regions. Ethically sourced, expertly roasted.",
-    numberOfItems: CoffeeData.length,
-    itemListElement: CoffeeData.map((coffee, index) => ({
+    numberOfItems: coffeeData.length,
+    itemListElement: coffeeData.map((coffee, index) => ({
       "@type": "ListItem",
       position: index + 1,
       item: {
@@ -228,15 +77,15 @@ const Menu: React.FC = () => {
   const roasts = ["all", "light", "medium", "medium-dark", "dark", "espresso"];
   const origins = [
     "all",
-    ...new Set(CoffeeData.map((coffee) => coffee.origin)),
+    ...new Set(coffeeData.map((coffee) => coffee.origin)),
   ];
   const processingMethods = [
     "all",
-    ...new Set(CoffeeData.map((coffee) => coffee.processing)),
+    ...new Set(coffeeData.map((coffee) => coffee.processing)),
   ];
 
   const filteredAndSortedCoffee = useMemo(() => {
-    let filtered = CoffeeData.filter((coffee) => {
+    let filtered = coffeeData.filter((coffee) => {
       const matchesSearch =
         coffee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         coffee.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -272,7 +121,14 @@ const Menu: React.FC = () => {
     });
 
     return filtered;
-  }, [searchTerm, selectedRoast, selectedOrigin, selectedProcessing, sortBy]);
+  }, [
+    coffeeData,
+    searchTerm,
+    selectedRoast,
+    selectedOrigin,
+    selectedProcessing,
+    sortBy,
+  ]);
 
   const handleAddToCart = (coffee: CoffeeBean) => {
     addToCart({
@@ -320,12 +176,26 @@ const Menu: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <section
+        id="menu"
+        className={`py-20 ${isDark ? "bg-gray-900" : "bg-amber-50"}`}
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center">Loading coffee products...</div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
 
       <section
         id="menu"
@@ -490,7 +360,7 @@ const Menu: React.FC = () => {
               className="mb-6"
             >
               <p className={isDark ? "text-gray-400" : "text-gray-600"}>
-                Showing {filteredAndSortedCoffee.length} of {CoffeeData.length}{" "}
+                Showing {filteredAndSortedCoffee.length} of {coffeeData.length}{" "}
                 coffees
                 {searchTerm && ` for "${searchTerm}"`}
                 {selectedRoast !== "all" && ` • ${selectedRoast} roast`}
@@ -825,6 +695,7 @@ const Menu: React.FC = () => {
                           {coffee.stock === 0 ? "Out of Stock" : "Add to Cart"}
                         </motion.button>
                       </ProtectedAction>
+
                       {/* Stock Info */}
                       {coffee.stock > 0 && coffee.stock < 10 && (
                         <div

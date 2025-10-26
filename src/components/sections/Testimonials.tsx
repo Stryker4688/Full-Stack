@@ -1,11 +1,16 @@
-import React from "react";
-import Slider from "react-slick";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
-import { motion } from "framer-motion";
+// src/components/sections/Testimonials.tsx
+"use client";
+
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
-import { Star, Quote, Award, Heart, Clock } from "lucide-react";
-import AddTestimonial from "../coffee/AddTestimonial";
+import { Star, Quote, Award, Heart, Clock, Send } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "../../utils/axios";
+import ProtectedAction from "../auth/ProtectedAction";
+import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
+
 interface Testimonial {
   id: number;
   name: string;
@@ -16,89 +21,95 @@ interface Testimonial {
   date: string;
   verified: boolean;
   featured: boolean;
+  status: "pending" | "approved" | "rejected";
 }
-
-const TestimonialData: Testimonial[] = [
-  {
-    id: 1,
-    name: "Sarah Chen",
-    text: "The Ethiopian Yirgacheffe completely transformed my morning routine. The floral notes and bright acidity are exactly what I've been searching for. Brew Haven's quality is unmatched!",
-    img: "https://picsum.photos/101/101",
-    location: "Portland, OR",
-    rating: 5,
-    date: "2024-01-15",
-    verified: true,
-    featured: true,
-  },
-  {
-    id: 2,
-    name: "Marcus Rodriguez",
-    text: "As a professional barista, I'm very particular about my beans. Brew Haven's Colombian Supremo has become my go-to for espresso. Consistent quality and amazing flavor development.",
-    img: "https://picsum.photos/102/102",
-    location: "Austin, TX",
-    rating: 5,
-    date: "2024-01-12",
-    verified: true,
-    featured: true,
-  },
-  {
-    id: 3,
-    name: "Emily Watson",
-    text: "The coffee subscription is brilliant! Fresh beans delivered monthly, and the variety has helped me discover new favorites. Customer service is exceptional too.",
-    img: "https://picsum.photos/103/103",
-    location: "Chicago, IL",
-    rating: 5,
-    date: "2024-01-10",
-    verified: true,
-    featured: false,
-  },
-  {
-    id: 4,
-    name: "James Kim",
-    text: "I've tried many specialty coffee roasters, but Brew Haven's attention to detail sets them apart. The Kenya AA is phenomenal - complex and vibrant.",
-    img: "https://picsum.photos/104/104",
-    location: "Seattle, WA",
-    rating: 5,
-    date: "2024-01-08",
-    verified: true,
-    featured: false,
-  },
-  {
-    id: 5,
-    name: "Lisa Thompson",
-    text: "The flavor notes are always accurate, and the beans arrive perfectly roasted. My daily coffee experience has improved dramatically since switching to Brew Haven.",
-    img: "https://picsum.photos/105/105",
-    location: "Denver, CO",
-    rating: 5,
-    date: "2024-01-05",
-    verified: true,
-    featured: false,
-  },
-  {
-    id: 6,
-    name: "David Park",
-    text: "Outstanding customer service and incredible coffee. They helped me find the perfect beans for my brewing method, and the results are fantastic.",
-    img: "https://picsum.photos/106/106",
-    location: "San Diego, CA",
-    rating: 5,
-    date: "2024-01-03",
-    verified: true,
-    featured: false,
-  },
-];
 
 const Testimonials: React.FC = () => {
   const { isDark } = useTheme();
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const queryClient = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [newTestimonial, setNewTestimonial] = useState({
+    name: "",
+    text: "",
+    rating: 5,
+    location: "",
+  });
 
-  // Structured data for SEO
+  // دریافت نظرات تایید شده
+  const { data: testimonials = [], isLoading } = useQuery({
+    queryKey: ["testimonials"],
+    queryFn: async (): Promise<Testimonial[]> => {
+      try {
+        const response = await api.get("/testimonials");
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching testimonials:", error);
+        return [];
+      }
+    },
+  });
+
+  // mutation برای ارسال نظر جدید
+  const submitTestimonialMutation = useMutation({
+    mutationFn: async (testimonialData: any) => {
+      const response = await api.post("/testimonials", testimonialData);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["testimonials"] });
+      setNewTestimonial({ name: "", text: "", rating: 5, location: "" });
+      setShowForm(false);
+
+      // اضافه کردن toast موفقیت
+      addToast({
+        type: "success",
+        title: "Review Submitted!",
+        message: "Thank you! Your review will be displayed after approval",
+        duration: 5000,
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error submitting testimonial:", error);
+      const errorMessage = error.response?.data?.message || "خطا در ارسال نظر";
+
+      // اضافه کردن toast خطا
+      addToast({
+        type: "error",
+        title: "Submission Failed",
+        message: "Please fill in all required fields",
+        duration: 4000,
+      });
+    },
+  });
+
+  const handleSubmitTestimonial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTestimonial.name.trim() || !newTestimonial.text.trim()) {
+      // اضافه کردن toast خطا
+      addToast({
+        type: "error",
+        title: "Submission Error",
+        message:
+          "An error occurred while submitting your review. Please try again.",
+        duration: 5000,
+      });
+      return;
+    }
+
+    submitTestimonialMutation.mutate(newTestimonial);
+  };
+
+  // Structured data for SEO - فقط برای نظرات تایید شده
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "Customer Testimonials and Reviews - Brew Haven Coffee",
     description:
       "Read authentic customer reviews and testimonials about Brew Haven's premium specialty coffee beans and exceptional service.",
-    numberOfItems: TestimonialData.length,
-    itemListElement: TestimonialData.map((testimonial, index) => ({
+    numberOfItems: testimonials.length,
+    itemListElement: testimonials.map((testimonial, index) => ({
       "@type": "ListItem",
       position: index + 1,
       item: {
@@ -127,58 +138,35 @@ const Testimonials: React.FC = () => {
     "@context": "https://schema.org",
     "@type": "AggregateRating",
     ratingValue: "4.9",
-    reviewCount: "1274",
+    reviewCount: testimonials.length.toString(),
     bestRating: "5",
     worstRating: "1",
   };
 
-  var settings = {
-    dots: true,
-    arrows: false,
-    infinite: true,
-    speed: 500,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 4000,
-    cssEase: "linear",
-    pauseOnHover: true,
-    pauseOnFocus: true,
-    responsive: [
-      {
-        breakpoint: 10000,
-        settings: {
-          slidesToShow: 3,
-          slidesToScroll: 1,
-          infinite: true,
-        },
-      },
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 1,
-          initialSlide: 2,
-        },
-      },
-      {
-        breakpoint: 640,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-        },
-      },
-    ],
-  };
+  if (isLoading) {
+    return (
+      <section
+        id="testimonial"
+        className={`py-20 ${isDark ? "bg-gray-900" : "bg-amber-50"}`}
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center">Loading testimonials...</div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
       {/* JSON-LD Structured Data */}
-      <script type="application/ld+json">
-        {JSON.stringify(structuredData)}
-      </script>
-      <script type="application/ld+json">
-        {JSON.stringify(aggregateRating)}
-      </script>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aggregateRating) }}
+      />
 
       <section
         id="testimonial"
@@ -223,7 +211,7 @@ const Testimonials: React.FC = () => {
                   isDark ? "text-amber-400" : "text-amber-900"
                 }`}
               >
-                Loved by Coffee Enthusiasts
+                Customer Experiences
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 50 }}
@@ -233,9 +221,8 @@ const Testimonials: React.FC = () => {
                   isDark ? "text-gray-300" : "text-gray-600"
                 }`}
               >
-                Discover why thousands of coffee lovers trust Brew Haven for
-                their daily brew. Read authentic reviews from our community of
-                passionate coffee enthusiasts.
+                Read what our community says about their coffee journey. Share
+                your own experience too!
               </motion.p>
 
               {/* Aggregate Rating */}
@@ -278,25 +265,198 @@ const Testimonials: React.FC = () => {
                       isDark ? "text-amber-400" : "text-amber-900"
                     }`}
                   >
-                    1.2K+
+                    {testimonials.length}+
                   </div>
                   <div className={isDark ? "text-gray-400" : "text-gray-600"}>
-                    Reviews
+                    Verified Reviews
                   </div>
                 </div>
               </motion.div>
             </motion.header>
 
-            {/* Testimonials Carousel */}
+            {/* Add Testimonial Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              className="text-center mb-12"
+            >
+              <ProtectedAction
+                action={() => setShowForm(true)}
+                message="Please login to share your experience"
+              >
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`px-8 py-3 rounded-lg font-semibold border-2 ${
+                    isDark
+                      ? "border-amber-400 text-amber-400 hover:bg-amber-400/10"
+                      : "border-amber-600 text-amber-600 hover:bg-amber-600/10"
+                  } transition-colors flex items-center gap-2 mx-auto`}
+                >
+                  <Send size={20} />
+                  Share Your Experience
+                </motion.button>
+              </ProtectedAction>
+            </motion.div>
+
+            {/* Testimonial Form */}
+            <AnimatePresence>
+              {showForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className={`mb-12 p-6 rounded-2xl ${
+                    isDark ? "bg-gray-800/80" : "bg-white/90"
+                  } border ${
+                    isDark ? "border-amber-500/30" : "border-amber-200"
+                  }`}
+                >
+                  <h3
+                    className={`text-2xl font-bold mb-4 ${
+                      isDark ? "text-amber-400" : "text-amber-900"
+                    }`}
+                  >
+                    Share Your Coffee Experience
+                  </h3>
+                  <form
+                    onSubmit={handleSubmitTestimonial}
+                    className="space-y-4"
+                  >
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        placeholder="Your Name *"
+                        value={newTestimonial.name}
+                        onChange={(e) =>
+                          setNewTestimonial({
+                            ...newTestimonial,
+                            name: e.target.value,
+                          })
+                        }
+                        className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${
+                          isDark
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-amber-400"
+                            : "border-gray-300 placeholder-gray-500 focus:ring-amber-900"
+                        }`}
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Your Location (optional)"
+                        value={newTestimonial.location}
+                        onChange={(e) =>
+                          setNewTestimonial({
+                            ...newTestimonial,
+                            location: e.target.value,
+                          })
+                        }
+                        className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${
+                          isDark
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-amber-400"
+                            : "border-gray-300 placeholder-gray-500 focus:ring-amber-900"
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        className={`block mb-2 ${
+                          isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        Your Rating *
+                      </label>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() =>
+                              setNewTestimonial({
+                                ...newTestimonial,
+                                rating: star,
+                              })
+                            }
+                            className={`p-2 rounded ${
+                              newTestimonial.rating >= star
+                                ? isDark
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-amber-600 text-white"
+                                : isDark
+                                ? "bg-gray-700 text-gray-400"
+                                : "bg-gray-200 text-gray-400"
+                            }`}
+                          >
+                            <Star size={20} fill="currentColor" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <textarea
+                      placeholder="Share your coffee experience... *"
+                      value={newTestimonial.text}
+                      onChange={(e) =>
+                        setNewTestimonial({
+                          ...newTestimonial,
+                          text: e.target.value,
+                        })
+                      }
+                      rows={4}
+                      className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 ${
+                        isDark
+                          ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-amber-400"
+                          : "border-gray-300 placeholder-gray-500 focus:ring-amber-900"
+                      }`}
+                      required
+                    />
+
+                    <div className="flex gap-4">
+                      <motion.button
+                        type="submit"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        disabled={submitTestimonialMutation.isPending}
+                        className={`px-6 py-3 rounded-lg font-semibold ${
+                          isDark
+                            ? "bg-amber-600 text-white hover:bg-amber-500"
+                            : "bg-amber-900 text-white hover:bg-amber-800"
+                        } transition-colors flex items-center gap-2`}
+                      >
+                        <Send size={16} />
+                        {submitTestimonialMutation.isPending
+                          ? "Submitting..."
+                          : "Submit Review"}
+                      </motion.button>
+                      <button
+                        type="button"
+                        onClick={() => setShowForm(false)}
+                        className={`px-6 py-3 rounded-lg font-semibold border ${
+                          isDark
+                            ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                            : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                        } transition-colors`}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Testimonials Grid */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.5, delay: 0.5 }}
             >
-              <Slider {...settings}>
-                {TestimonialData.map((data) => (
-                  <div key={data.id} className="my-6 px-2">
+              {testimonials.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {testimonials.map((data) => (
                     <motion.article
+                      key={data.id}
                       whileHover={{ y: -5, transition: { duration: 0.2 } }}
                       itemScope
                       itemType="https://schema.org/Review"
@@ -408,24 +568,35 @@ const Testimonials: React.FC = () => {
                           isDark ? "text-amber-400/20" : "text-amber-900/20"
                         }`}
                       />
-
-                      {/* Schema Meta */}
-                      <meta itemProp="datePublished" content={data.date} />
-                      <div
-                        itemProp="reviewRating"
-                        itemScope
-                        itemType="https://schema.org/Rating"
-                      >
-                        <meta
-                          itemProp="ratingValue"
-                          content={data.rating.toString()}
-                        />
-                        <meta itemProp="bestRating" content="5" />
-                      </div>
                     </motion.article>
+                  ))}
+                </div>
+              ) : (
+                // Empty State وقتی هیچ نظری نیست
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-16"
+                >
+                  <div
+                    className={`text-6xl mb-4 ${
+                      isDark ? "text-gray-600" : "text-gray-300"
+                    }`}
+                  >
+                    💬
                   </div>
-                ))}
-              </Slider>
+                  <h3
+                    className={`text-xl font-semibold mb-2 ${
+                      isDark ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    No Reviews Yet
+                  </h3>
+                  <p className={isDark ? "text-gray-400" : "text-gray-500"}>
+                    Be the first to share your coffee experience!
+                  </p>
+                </motion.div>
+              )}
             </motion.div>
 
             {/* Trust Indicators */}
@@ -445,10 +616,10 @@ const Testimonials: React.FC = () => {
                     isDark ? "text-amber-400" : "text-amber-900"
                   }`}
                 >
-                  1.2K+
+                  {testimonials.length}+
                 </div>
                 <div className={isDark ? "text-gray-300" : "text-gray-600"}>
-                  Happy Customers
+                  Verified Reviews
                 </div>
               </div>
               <div
@@ -522,24 +693,34 @@ const Testimonials: React.FC = () => {
                   isDark ? "text-gray-300" : "text-gray-600"
                 }`}
               >
-                Experience the quality that thousands of coffee enthusiasts are
-                raving about. Discover your new favorite coffee today.
+                Experience the quality that coffee enthusiasts are raving about.
+                Share your story and help others discover their perfect brew.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <motion.a
-                  href="#menu"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-8 py-3 rounded-lg font-semibold ${
-                    isDark
-                      ? "bg-amber-600 text-white hover:bg-amber-500"
-                      : "bg-amber-900 text-white hover:bg-amber-800"
-                  } transition-colors`}
+                <ProtectedAction
+                  action={() => setShowForm(true)}
+                  message="Please login to share your experience"
                 >
-                  Shop Coffee Beans
-                </motion.a>
-                <motion.a
-                  href="#contact"
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`px-8 py-3 rounded-lg font-semibold ${
+                      isDark
+                        ? "bg-amber-600 text-white hover:bg-amber-500"
+                        : "bg-amber-900 text-white hover:bg-amber-800"
+                    } transition-colors flex items-center gap-2`}
+                  >
+                    <Send size={20} />
+                    Share Your Story
+                  </motion.button>
+                </ProtectedAction>
+                <motion.button
+                  onClick={() => {
+                    const element = document.querySelector("#contact");
+                    if (element) {
+                      element.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={`px-8 py-3 rounded-lg font-semibold border ${
@@ -549,85 +730,11 @@ const Testimonials: React.FC = () => {
                   } transition-colors`}
                 >
                   Contact Us
-                </motion.a>
-              </div>
-            </motion.section>
-
-            {/* SEO Rich Content */}
-            <motion.section
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 1.2 }}
-              className="mt-16"
-            >
-              <div
-                className={`prose max-w-none ${
-                  isDark ? "prose-invert" : ""
-                } prose-amber text-center`}
-              >
-                <h2
-                  className={`text-2xl font-bold mb-6 ${
-                    isDark ? "text-amber-400" : "text-amber-900"
-                  }`}
-                >
-                  Why Customers Love Brew Haven
-                </h2>
-                <div className="grid md:grid-cols-3 gap-8 text-left">
-                  <div>
-                    <h3
-                      className={`text-lg font-semibold mb-3 ${
-                        isDark ? "text-amber-400" : "text-amber-900"
-                      }`}
-                    >
-                      🌱 Premium Quality Beans
-                    </h3>
-                    <p className={isDark ? "text-gray-300" : "text-gray-600"}>
-                      Our customers consistently praise the exceptional quality
-                      and freshness of our beans. Each batch is carefully
-                      sourced and roasted to highlight unique flavor profiles.
-                    </p>
-                  </div>
-                  <div>
-                    <h3
-                      className={`text-lg font-semibold mb-3 ${
-                        isDark ? "text-amber-400" : "text-amber-900"
-                      }`}
-                    >
-                      🚀 Fast & Reliable Shipping
-                    </h3>
-                    <p className={isDark ? "text-gray-300" : "text-gray-600"}>
-                      Freshness matters. We roast to order and ship within 24
-                      hours, ensuring you receive peak-flavor coffee every time.
-                      Free shipping on orders over $50.
-                    </p>
-                  </div>
-                  <div>
-                    <h3
-                      className={`text-lg font-semibold mb-3 ${
-                        isDark ? "text-amber-400" : "text-amber-900"
-                      }`}
-                    >
-                      💫 Exceptional Service
-                    </h3>
-                    <p className={isDark ? "text-gray-300" : "text-gray-600"}>
-                      From personalized recommendations to responsive support,
-                      our team is dedicated to making your coffee experience
-                      exceptional. We're here to help you brew better.
-                    </p>
-                  </div>
-                </div>
+                </motion.button>
               </div>
             </motion.section>
           </div>
         </div>
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="mt-12"
-        >
-          <AddTestimonial />
-        </motion.section>
       </section>
     </>
   );

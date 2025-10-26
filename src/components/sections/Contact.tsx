@@ -1,4 +1,6 @@
 // components/Contact.tsx
+"use client";
+
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
