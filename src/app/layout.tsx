@@ -2,6 +2,7 @@
 "use client";
 import { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { AuthProvider } from "../contexts/AuthContext";
@@ -32,23 +33,24 @@ export default function RootLayout({
         <link rel="icon" href="/assets/coffee5-BIzYKsk9.png" />
       </head>
       <body>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <ToastProvider>
-              {" "}
-              {/* اول ToastProvider */}
-              <AuthProvider>
-                {" "}
-                {/* سپس AuthProvider */}
-                <CartProvider>
-                  <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
-                </CartProvider>
-              </AuthProvider>
-            </ToastProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
+        <GoogleOAuthProvider
+          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
+        >
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <ToastProvider>
+                <AuthProvider>
+                  <CartProvider>
+                    <Suspense fallback={<LoadingSpinner />}>
+                      {children}
+                    </Suspense>
+                  </CartProvider>
+                </AuthProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </GoogleOAuthProvider>
       </body>
     </html>
   );
 }
-  

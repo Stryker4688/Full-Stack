@@ -11,6 +11,8 @@ interface User {
   email: string;
   name: string;
   role: "user" | "admin";
+  authProvider?: string;
+  emailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -27,6 +29,8 @@ interface AuthContextType {
     password: string,
     rememberMe?: boolean
   ) => Promise<void>;
+  loginWithGoogle: (code: string, rememberMe?: boolean) => Promise<void>;
+  registerWithGoogle: (code: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
   loading: boolean;
   isAuthenticated: boolean;
@@ -58,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearError = () => setError(null);
 
-  // Login mutation
+  // Regular Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: {
       email: string;
@@ -83,14 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         message: `Welcome back ${data.user.name} 👋`,
         duration: 4000,
       });
-
-      router.push("/");
     },
     onError: (error: any) => {
-      console.log("❌ Login onError - Full error:", error);
+      console.log("❌ Login error:", error);
       const errorMessage = error.response?.data?.message || "Login failed";
       setError(errorMessage);
-
       addToast({
         type: "error",
         title: "Login Failed",
@@ -100,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Register mutation
+  // Regular Register mutation
   const registerMutation = useMutation({
     mutationFn: async (userData: {
       name: string;
@@ -126,15 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         message: `Welcome to Brew Haven ${data.user.name} 🎉`,
         duration: 4000,
       });
-
-      router.push("/");
     },
     onError: (error: any) => {
-      console.log("❌ Register onError - Full error:", error);
+      console.log("❌ Register error:", error);
       const errorMessage =
         error.response?.data?.message || "Registration failed";
       setError(errorMessage);
-
       addToast({
         type: "error",
         title: "Registration Failed",
@@ -144,17 +142,106 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Login function
+  // Google Login mutation - با Authorization Code
+  const loginWithGoogleMutation = useMutation({
+    mutationFn: async (credentials: { code: string; rememberMe?: boolean }) => {
+      console.log(
+        "🔐 Sending Google login with code:",
+        credentials.code.substring(0, 20) + "..."
+      );
+      const response = await api.post("/auth/google", {
+        code: credentials.code,
+        rememberMe: credentials.rememberMe || false,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log("✅ Google login success");
+      setToken(data.token);
+      setUser(data.user);
+      setError(null);
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      queryClient.setQueryData(["user"], data.user);
+
+      addToast({
+        type: "success",
+        title: "Google Login Successful!",
+        message: `Welcome ${data.user.name} 👋`,
+        duration: 4000,
+      });
+    },
+    onError: (error: any) => {
+      console.log("❌ Google login error:", error);
+      const errorMessage =
+        error.response?.data?.message || "Google login failed";
+      setError(errorMessage);
+      addToast({
+        type: "error",
+        title: "Google Login Failed",
+        message: errorMessage,
+        duration: 5000,
+      });
+    },
+  });
+
+  // Google Register mutation - با Authorization Code
+  const registerWithGoogleMutation = useMutation({
+    mutationFn: async (credentials: { code: string; rememberMe?: boolean }) => {
+      console.log(
+        "🔐 Sending Google register with code:",
+        credentials.code.substring(0, 20) + "..."
+      );
+      const response = await api.post("/auth/google", {
+        code: credentials.code,
+        rememberMe: credentials.rememberMe || false,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log("✅ Google register success");
+      setToken(data.token);
+      setUser(data.user);
+      setError(null);
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      queryClient.setQueryData(["user"], data.user);
+
+      addToast({
+        type: "success",
+        title: "Google Registration Successful!",
+        message: `Welcome to Brew Haven ${data.user.name} 🎉`,
+        duration: 4000,
+      });
+    },
+    onError: (error: any) => {
+      console.log("❌ Google register error:", error);
+      const errorMessage =
+        error.response?.data?.message || "Google registration failed";
+      setError(errorMessage);
+      addToast({
+        type: "error",
+        title: "Google Registration Failed",
+        message: errorMessage,
+        duration: 5000,
+      });
+    },
+  });
+
+  // Functions
   const login = async (
     email: string,
     password: string,
     rememberMe?: boolean
   ): Promise<void> => {
     clearError();
-    await loginMutation.mutateAsync({ email, password, rememberMe });
+    await loginMutation.mutateAsync({
+      email,
+      password,
+      rememberMe: rememberMe || false,
+    });
   };
 
-  // Register function
   const register = async (
     name: string,
     email: string,
@@ -162,10 +249,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     rememberMe?: boolean
   ): Promise<void> => {
     clearError();
-    await registerMutation.mutateAsync({ name, email, password, rememberMe });
+    await registerMutation.mutateAsync({
+      name,
+      email,
+      password,
+      rememberMe: rememberMe || false,
+    });
   };
 
-  // Logout function
+  const loginWithGoogle = async (
+    code: string,
+    rememberMe?: boolean
+  ): Promise<void> => {
+    clearError();
+    await loginWithGoogleMutation.mutateAsync({
+      code,
+      rememberMe: rememberMe || false,
+    });
+  };
+
+  const registerWithGoogle = async (
+    code: string,
+    rememberMe?: boolean
+  ): Promise<void> => {
+    clearError();
+    await registerWithGoogleMutation.mutateAsync({
+      code,
+      rememberMe: rememberMe || false,
+    });
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -184,7 +297,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     router.push("/");
   };
 
-  const loading = loginMutation.isPending || registerMutation.isPending;
+  const loading =
+    loginMutation.isPending ||
+    registerMutation.isPending ||
+    loginWithGoogleMutation.isPending ||
+    registerWithGoogleMutation.isPending;
   const isAuthenticated = !!user && !!token;
 
   const value: AuthContextType = {
@@ -192,6 +309,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     token,
     login,
     register,
+    loginWithGoogle,
+    registerWithGoogle,
     logout,
     loading,
     isAuthenticated,

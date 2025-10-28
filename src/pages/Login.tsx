@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useGoogleLogin } from "@react-oauth/google";
 import {
   Eye,
   EyeOff,
@@ -24,7 +25,7 @@ const Login: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isDark } = useTheme();
-  const { login, loading, error, clearError } = useAuth();
+  const { login, loginWithGoogle, loading, error, clearError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -91,86 +92,38 @@ const Login: React.FC = () => {
       }
 
       const from = searchParams?.get("from") || "/";
+      // فقط اگر login موفق بود redirect کن
       router.push(from);
     } catch (error) {
       console.log("Login error:", error);
+      // اگر خطا داشت، صفحه رو refresh نکن
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    setLocalError(null);
-    clearError();
+  // Google Login با @react-oauth/google
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      setGoogleLoading(true);
+      setLocalError(null);
+      clearError();
 
-    try {
-      await new Promise((resolve, reject) => {
-        if (
-          document.querySelector(
-            'script[src="https://accounts.google.com/gsi/client"]'
-          )
-        ) {
-          resolve(true);
-          return;
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://accounts.google.com/gsi/client";
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve(true);
-        script.onerror = () =>
-          reject(new Error("Failed to load Google script"));
-        document.head.appendChild(script);
-      });
-
-      // @ts-ignore
-      if (!window.google) {
-        throw new Error("Google library not loaded");
+      try {
+        // حالا code رو می‌فرستیم
+        await loginWithGoogle(codeResponse.code, rememberMe);
+        const from = searchParams?.get("from") || "/";
+        router.push(from);
+      } catch (error) {
+        setLocalError("Google login failed");
+      } finally {
+        setGoogleLoading(false);
       }
-
-      // @ts-ignore
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        scope: "email profile openid",
-        callback: async (response: any) => {
-          if (response.access_token) {
-            try {
-              const backendResponse = await fetch("/api/auth/google", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  idToken: response.access_token,
-                  rememberMe,
-                }),
-              });
-
-              const data = await backendResponse.json();
-
-              if (data.success) {
-                localStorage.setItem("authToken", data.token);
-                localStorage.setItem("user", JSON.stringify(data.user));
-                const from = searchParams?.get("from") || "/";
-                router.push(from);
-              } else {
-                setLocalError(data.message || "Google login failed");
-              }
-            } catch (error) {
-              setLocalError("Google authentication failed");
-            }
-          }
-          setGoogleLoading(false);
-        },
-      });
-
-      client.requestAccessToken();
-    } catch (error) {
-      console.error("Google login error:", error);
-      setLocalError("Failed to initialize Google login");
+    },
+    onError: () => {
+      setLocalError("Google login failed");
       setGoogleLoading(false);
-    }
-  };
+    },
+    flow: "auth-code", // تغییر به authorization code flow
+  });
 
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
@@ -492,13 +445,13 @@ const Login: React.FC = () => {
           </div>
         </div>
         <GoogleLoginButton
-          onClick={handleGoogleLogin}
+          onClick={() => googleLogin()}
           loading={googleLoading}
           text="Sign in with Google"
         />
       </div>
     ),
-    [isDark, googleLoading]
+    [isDark, googleLoading, googleLogin]
   );
 
   const registerLink = useMemo(

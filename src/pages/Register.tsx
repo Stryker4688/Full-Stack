@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useGoogleLogin } from "@react-oauth/google";
 import {
   Eye,
   EyeOff,
@@ -24,7 +25,13 @@ import TurnstileCaptcha from "../components/sections/TurnstileCaptcha";
 const Register: React.FC = () => {
   const router = useRouter();
   const { isDark } = useTheme();
-  const { register: registerUser, loading, error, clearError } = useAuth();
+  const {
+    register: registerUser,
+    registerWithGoogle,
+    loading,
+    error,
+    clearError,
+  } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -71,85 +78,36 @@ const Register: React.FC = () => {
 
     try {
       await registerUser(data.name, data.email, data.password, rememberMe);
+      // فقط اگر موفق بود redirect کن
       router.push("/");
     } catch (error) {
       console.log("Register error:", error);
+      // اگر خطا داشت، صفحه رو refresh نکن
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    setLocalError(null);
-    clearError();
+  // Google Register با @react-oauth/google
+  const googleRegister = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      setGoogleLoading(true);
+      setLocalError(null);
+      clearError();
 
-    try {
-      await new Promise((resolve, reject) => {
-        if (
-          document.querySelector(
-            'script[src="https://accounts.google.com/gsi/client"]'
-          )
-        ) {
-          resolve(true);
-          return;
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://accounts.google.com/gsi/client";
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve(true);
-        script.onerror = () =>
-          reject(new Error("Failed to load Google script"));
-        document.head.appendChild(script);
-      });
-
-      // @ts-ignore
-      if (!window.google) {
-        throw new Error("Google library not loaded");
+      try {
+        await registerWithGoogle(codeResponse.code, rememberMe);
+        router.push("/");
+      } catch (error) {
+        setLocalError("Google registration failed");
+      } finally {
+        setGoogleLoading(false);
       }
-
-      // @ts-ignore
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        scope: "email profile openid",
-        callback: async (response: any) => {
-          if (response.access_token) {
-            try {
-              const backendResponse = await fetch("/api/auth/google", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  idToken: response.access_token,
-                  rememberMe,
-                }),
-              });
-
-              const data = await backendResponse.json();
-
-              if (data.success) {
-                localStorage.setItem("authToken", data.token);
-                localStorage.setItem("user", JSON.stringify(data.user));
-                router.push("/");
-              } else {
-                setLocalError(data.message || "Google registration failed");
-              }
-            } catch (error) {
-              setLocalError("Google authentication failed");
-            }
-          }
-          setGoogleLoading(false);
-        },
-      });
-
-      client.requestAccessToken();
-    } catch (error) {
-      console.error("Google registration error:", error);
-      setLocalError("Failed to initialize Google registration");
+    },
+    onError: () => {
+      setLocalError("Google registration failed");
       setGoogleLoading(false);
-    }
-  };
+    },
+    flow: "auth-code", // تغییر به authorization code flow
+  });
 
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
@@ -626,13 +584,13 @@ const Register: React.FC = () => {
           </div>
         </div>
         <GoogleLoginButton
-          onClick={handleGoogleLogin}
+          onClick={() => googleRegister()}
           loading={googleLoading}
           text="Sign up with Google"
         />
       </div>
     ),
-    [isDark, googleLoading]
+    [isDark, googleLoading, googleRegister]
   );
 
   const loginLink = useMemo(

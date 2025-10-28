@@ -1,24 +1,33 @@
+// src/components/ui/LoadingSpinner.tsx
 import React from "react";
-import { motion } from "framer-motion";
+import { Coffee } from "lucide-react";
 
-const LoadingSpinner: React.FC = () => {
+interface LoadingSpinnerProps {
+  size?: "sm" | "md" | "lg";
+  text?: string;
+}
+
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
+  size = "md",
+  text = "Loading...",
+}) => {
+  const sizeClasses = {
+    sm: "w-6 h-6",
+    md: "w-8 h-8",
+    lg: "w-12 h-12",
+  };
+
   return (
-    <div className="min-h-screen bg-amber-50 flex items-center justify-center">
-      <div className="text-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-16 h-16 border-4 border-amber-900 border-t-transparent rounded-full mx-auto mb-4"
+    <div className="flex flex-col items-center justify-center space-y-3">
+      <div className="relative">
+        <Coffee
+          className={`${sizeClasses[size]} text-amber-600 animate-pulse`}
         />
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-amber-900 font-cursive text-xl"
-        >
-          Brewing Your Experience...
-        </motion.p>
+        <div
+          className={`absolute inset-0 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin ${sizeClasses[size]}`}
+        />
       </div>
+      {text && <p className="text-gray-600 text-sm font-medium">{text}</p>}
     </div>
   );
 };

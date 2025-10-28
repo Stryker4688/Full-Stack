@@ -1,5 +1,5 @@
 {
-  "name": "brew-haven",
+  "name": "coffe",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@react-oauth/google": "^0.12.2",
     "@tanstack/react-query": "^5.90.5",
     "axios": "^1.12.2",
     "framer-motion": "^11.18.2",
