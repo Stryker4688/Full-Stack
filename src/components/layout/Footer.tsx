@@ -12,32 +12,44 @@ import {
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useActiveSection } from "../../contexts/ActiveSectionContext";
 
 interface FooterLink {
   title: string;
   link: string;
+  section: string;
 }
 
 const FooterLinks: FooterLink[] = [
   {
     title: "Home",
     link: "/",
+    section: "home",
+  },
+  {
+    title: "Offer",
+    link: "#offer",
+    section: "offer",
   },
   {
     title: "Menu",
     link: "#menu",
+    section: "menu",
   },
   {
     title: "About",
     link: "#about",
+    section: "about",
   },
   {
-    title: "Testimonials", // اضافه شد
+    title: "Testimonials",
     link: "#testimonial",
+    section: "testimonial",
   },
   {
     title: "Contact",
     link: "#contact",
+    section: "contact",
   },
 ];
 
@@ -50,8 +62,13 @@ const socialLinks = [
 
 const Footer: React.FC = () => {
   const { isDark } = useTheme();
+  const { activeSection, scrollToSection } = useActiveSection();
 
-  const handleFooterClick = (link: string, e: React.MouseEvent) => {
+  const handleFooterClick = (
+    link: string,
+    section: string,
+    e: React.MouseEvent
+  ) => {
     e.preventDefault();
 
     if (link === "/") {
@@ -59,21 +76,13 @@ const Footer: React.FC = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
       window.history.pushState(null, "", "/");
     } else if (link.startsWith("#")) {
-      // Handle section scroll
-      const element = document.querySelector(link);
-      if (element) {
-        const elementPosition =
-          element.getBoundingClientRect().top + window.pageYOffset;
-        const offsetPosition = elementPosition - 80;
-
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: "smooth",
-        });
-
-        window.history.pushState(null, "", link);
-      }
+      // Handle section scroll using context
+      scrollToSection(link);
     }
+  };
+
+  const isActive = (section: string) => {
+    return activeSection === section;
   };
 
   return (
@@ -132,11 +141,29 @@ const Footer: React.FC = () => {
                     <li key={index}>
                       <a
                         href={data.link}
-                        onClick={(e) => handleFooterClick(data.link, e)}
-                        className="text-gray-300 hover:text-amber-300 transition-colors duration-300 flex items-center group cursor-pointer"
+                        onClick={(e) =>
+                          handleFooterClick(data.link, data.section, e)
+                        }
+                        className={`text-gray-300 hover:text-amber-300 transition-colors duration-300 flex items-center group cursor-pointer relative ${
+                          isActive(data.section)
+                            ? "text-amber-400 font-semibold"
+                            : ""
+                        }`}
                       >
-                        <span className="w-2 h-2 bg-amber-400 rounded-full mr-3 group-hover:scale-150 transition-transform duration-300"></span>
+                        <span
+                          className={`w-2 h-2 rounded-full mr-3 group-hover:scale-150 transition-transform duration-300 ${
+                            isActive(data.section)
+                              ? "bg-amber-400 scale-125"
+                              : "bg-amber-400"
+                          }`}
+                        ></span>
                         {data.title}
+                        {isActive(data.section) && (
+                          <motion.div
+                            layoutId="footerActive"
+                            className="absolute left-0 w-full h-px bg-amber-400 bottom-0"
+                          />
+                        )}
                       </a>
                     </li>
                   ))}

@@ -1,10 +1,10 @@
-// contexts/CartContext.tsx
+// contexts/CartContext.tsx - نسخه اصلاح شده
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
 
 interface CartItem {
-  id: number;
+  id: string; // تغییر از number به string
   name: string;
   price: number;
   quantity: number;
@@ -15,8 +15,8 @@ interface CartItem {
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (item: Omit<CartItem, "quantity">) => void;
-  removeFromCart: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
+  removeFromCart: (id: string) => void; // تغییر به string
+  updateQuantity: (id: string, quantity: number) => void; // تغییر به string
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -41,11 +41,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: string) => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(id);
       return;

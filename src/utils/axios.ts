@@ -12,9 +12,11 @@ const api = axios.create({
 // Auto-add token to requests
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('authToken');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
         return config;
     },
@@ -25,13 +27,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        // فقط برای خطای 401 redirect انجام بده
         if (error.response?.status === 401) {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
         }
-        // سایر خطاها را بدون تغییر pass through می‌کنیم
         return Promise.reject(error);
     }
 );

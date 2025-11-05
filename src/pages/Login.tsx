@@ -91,8 +91,8 @@ const Login: React.FC = () => {
         localStorage.removeItem("rememberMe");
       }
 
-      const from = searchParams?.get("from") || "/";
       // فقط اگر login موفق بود redirect کن
+      const from = searchParams?.get("from") || "/";
       router.push(from);
     } catch (error) {
       console.log("Login error:", error);
@@ -309,8 +309,8 @@ const Login: React.FC = () => {
             Remember me
           </span>
         </label>
-        <button
-          type="button"
+        <Link
+          href="/forgot-password"
           className={`text-sm font-medium transition-colors ${
             isDark
               ? "text-amber-400 hover:text-amber-300"
@@ -318,7 +318,7 @@ const Login: React.FC = () => {
           }`}
         >
           Forgot password?
-        </button>
+        </Link>
       </div>
     ),
     [isDark, rememberMe]

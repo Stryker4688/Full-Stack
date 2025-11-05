@@ -1,95 +1,143 @@
-// src/components/layout/Navbar.tsx
+// src/components/layout/Navbar.tsx - نسخه اصلاح شده
 "use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Moon, Sun, Menu, X, User, LogOut, ShoppingCart } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Menu,
+  X,
+  User,
+  LogOut,
+  ShoppingCart,
+  Plus,
+  Settings,
+  Users,
+  MessageSquare,
+  Package,
+} from "lucide-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
+import { useActiveSection } from "../../contexts/ActiveSectionContext";
 import LogoutConfirmation from "../auth/LogoutConfirmation";
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentHash, setCurrentHash] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();
   const { user, logout, isAuthenticated } = useAuth();
   const { totalItems } = useCart();
+  const { activeSection, scrollToSection } = useActiveSection();
   const pathname = usePathname();
 
-  useEffect(() => {
-    setCurrentHash(window.location.hash);
-    const handleHashChange = () => {
-      setCurrentHash(window.location.hash);
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
-
   const navItems = [
-    { name: "Home", path: "/" },
-    { name: "Menu", path: "#menu" },
-    { name: "About", path: "#about" },
-    { name: "Testimonials", path: "#testimonial" },
-    { name: "Contact", path: "#contact" },
+    { name: "Home", path: "/", section: "home" },
+    { name: "Offer", path: "#offer", section: "offer" },
+    { name: "Menu", path: "#menu", section: "menu" },
+    { name: "About", path: "#about", section: "about" },
+    { name: "Testimonials", path: "#testimonial", section: "testimonial" },
+    { name: "Contact", path: "#contact", section: "contact" },
   ];
+
+  const adminMenuItems = [
+    {
+      name: "Create Product",
+      path: "/admin/products/create",
+      icon: Plus,
+      description: "Add new coffee products",
+    },
+    {
+      name: "Manage Products",
+      path: "/admin/products",
+      icon: Package,
+      description: "View and edit products",
+    },
+    {
+      name: "Manage Reviews",
+      path: "/admin/testimonials",
+      icon: MessageSquare,
+      description: "Approve or reject testimonials",
+    },
+  ];
+
+  const superAdminMenuItems = [
+    {
+      name: "Manage Admins",
+      path: "/admin/users",
+      icon: Users,
+      description: "Create and manage admin users",
+    },
+    {
+      name: "Admin Settings",
+      path: "/admin/settings",
+      icon: Settings,
+      description: "System configuration",
+    },
+  ];
+
+  // Helper functions برای بررسی نقش کاربر
+  const isAdmin = () => user?.role === "admin" || user?.role === "super_admin";
+  const isSuperAdmin = () => user?.role === "super_admin";
 
   const handleLogoutConfirm = () => {
     logout();
     setShowLogoutConfirm(false);
     setIsMenuOpen(false);
+    setIsAdminMenuOpen(false);
   };
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
   };
 
-  const scrollToSection = (hash: string) => {
-    const element = document.querySelector(hash);
-    if (element) {
-      const elementPosition =
-        element.getBoundingClientRect().top + window.pageYOffset;
-      const offsetPosition = elementPosition - 80; // Offset for navbar height
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth",
-      });
-
-      // Update URL hash without page reload
-      window.history.pushState(null, "", hash);
-      setCurrentHash(hash);
-    }
-  };
-
-  const handleNavClick = (path: string, e?: React.MouseEvent) => {
+  const handleNavClick = (
+    path: string,
+    section: string,
+    e?: React.MouseEvent
+  ) => {
     e?.preventDefault();
 
     if (path === "/") {
-      // Handle Home click - scroll to top
       window.scrollTo({ top: 0, behavior: "smooth" });
       window.history.pushState(null, "", "/");
-      setCurrentHash("");
     } else if (path.startsWith("#")) {
-      // Handle section scroll
       scrollToSection(path);
     }
 
     setIsMenuOpen(false);
   };
 
-  const isActive = (itemPath: string) => {
-    if (itemPath === "/") {
-      return pathname === "/" && !currentHash;
-    }
-    if (itemPath.startsWith("#")) {
-      return currentHash === itemPath;
-    }
-    return pathname === itemPath;
+  const handleAdminNavClick = (path: string) => {
+    setIsMenuOpen(false);
+    setIsAdminMenuOpen(false);
   };
+
+  const isActive = (itemSection: string) => {
+    if (itemSection === "home") {
+      return pathname === "/" && activeSection === "home";
+    }
+    return activeSection === itemSection;
+  };
+
+  const isAdminPage = pathname?.startsWith("/admin");
+
+  // Close admin menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isAdminMenuOpen && !target.closest(".admin-menu")) {
+        setIsAdminMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isAdminMenuOpen]);
 
   return (
     <>
@@ -108,7 +156,7 @@ const Navbar: React.FC = () => {
               className="flex items-center space-x-2"
               onClick={(e) => {
                 e.preventDefault();
-                handleNavClick("/", e);
+                handleNavClick("/", "home", e);
               }}
             >
               <motion.div
@@ -137,9 +185,9 @@ const Navbar: React.FC = () => {
               {navItems.map((item) => (
                 <button
                   key={item.name}
-                  onClick={(e) => handleNavClick(item.path, e)}
-                  className={`font-medium transition-colors ${
-                    isActive(item.path)
+                  onClick={(e) => handleNavClick(item.path, item.section, e)}
+                  className={`font-medium transition-colors relative ${
+                    isActive(item.section)
                       ? isDark
                         ? "text-amber-400"
                         : "text-amber-600"
@@ -149,6 +197,12 @@ const Navbar: React.FC = () => {
                   }`}
                 >
                   {item.name}
+                  {isActive(item.section) && (
+                    <motion.div
+                      layoutId="activeSection"
+                      className="absolute -bottom-1 left-0 right-0 h-0.5 bg-amber-400"
+                    />
+                  )}
                 </button>
               ))}
             </div>
@@ -187,6 +241,110 @@ const Navbar: React.FC = () => {
               {/* User Menu */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
+                  {/* Admin Menu Dropdown */}
+                  {isAdmin() && (
+                    <div className="relative admin-menu">
+                      <button
+                        onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                          isAdminPage
+                            ? isDark
+                              ? "bg-amber-600 text-white"
+                              : "bg-amber-600 text-white"
+                            : isDark
+                            ? "bg-gray-800 text-amber-400 hover:bg-gray-700"
+                            : "bg-amber-100 text-amber-600 hover:bg-amber-200"
+                        }`}
+                      >
+                        <Settings size={18} />
+                        <span className="text-sm font-medium">Admin</span>
+                      </button>
+
+                      {/* Admin Dropdown Menu */}
+                      {isAdminMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`absolute right-0 top-full mt-2 w-64 rounded-lg shadow-xl border ${
+                            isDark
+                              ? "bg-gray-800 border-gray-700"
+                              : "bg-white border-gray-200"
+                          }`}
+                        >
+                          <div className="p-2">
+                            {/* Admin Info */}
+                            <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {user?.name}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                                {user?.role?.replace("_", " ")}
+                              </p>
+                            </div>
+
+                            {/* Admin Menu Items */}
+                            <div className="space-y-1 mt-2">
+                              {adminMenuItems.map((item) => (
+                                <Link
+                                  key={item.name}
+                                  href={item.path}
+                                  onClick={() => handleAdminNavClick(item.path)}
+                                  className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                                    isDark
+                                      ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+                                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                  }`}
+                                >
+                                  <item.icon size={16} />
+                                  <div className="flex-1">
+                                    <div className="font-medium">
+                                      {item.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {item.description}
+                                    </div>
+                                  </div>
+                                </Link>
+                              ))}
+
+                              {/* Super Admin Items */}
+                              {isSuperAdmin() && (
+                                <>
+                                  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                  {superAdminMenuItems.map((item) => (
+                                    <Link
+                                      key={item.name}
+                                      href={item.path}
+                                      onClick={() =>
+                                        handleAdminNavClick(item.path)
+                                      }
+                                      className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                                        isDark
+                                          ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+                                          : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                      }`}
+                                    >
+                                      <item.icon size={16} />
+                                      <div className="flex-1">
+                                        <div className="font-medium">
+                                          {item.name}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                          {item.description}
+                                        </div>
+                                      </div>
+                                    </Link>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* User Info */}
                   <div className="flex items-center space-x-2">
                     <User
                       className={`w-5 h-5 ${
@@ -201,6 +359,8 @@ const Navbar: React.FC = () => {
                       {user?.name}
                     </span>
                   </div>
+
+                  {/* Logout */}
                   <button
                     onClick={handleLogoutClick}
                     className={`p-2 rounded-lg transition-colors ${
@@ -291,12 +451,13 @@ const Navbar: React.FC = () => {
               className="md:hidden border-t border-gray-200 dark:border-gray-700"
             >
               <div className="py-4 space-y-4">
+                {/* Main Navigation */}
                 {navItems.map((item) => (
                   <button
                     key={item.name}
-                    onClick={(e) => handleNavClick(item.path, e)}
-                    className={`block w-full text-left px-4 py-2 font-medium transition-colors ${
-                      isActive(item.path)
+                    onClick={(e) => handleNavClick(item.path, item.section, e)}
+                    className={`block w-full text-left px-4 py-2 font-medium transition-colors relative ${
+                      isActive(item.section)
                         ? isDark
                           ? "text-amber-400 bg-gray-800"
                           : "text-amber-600 bg-amber-100"
@@ -306,8 +467,52 @@ const Navbar: React.FC = () => {
                     }`}
                   >
                     {item.name}
+                    {isActive(item.section) && (
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-amber-400 rounded-r" />
+                    )}
                   </button>
                 ))}
+
+                {/* Admin Section - Mobile */}
+                {isAuthenticated && isAdmin() && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div className="px-4 mb-2">
+                      <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                        Admin Panel
+                      </p>
+                    </div>
+
+                    {/* Admin Menu Items */}
+                    {adminMenuItems.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.path}
+                        onClick={() => handleAdminNavClick(item.path)}
+                        className="flex items-center space-x-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <item.icon size={18} />
+                        <span>{item.name}</span>
+                      </Link>
+                    ))}
+
+                    {/* Super Admin Items */}
+                    {isSuperAdmin() && (
+                      <>
+                        {superAdminMenuItems.map((item) => (
+                          <Link
+                            key={item.name}
+                            href={item.path}
+                            onClick={() => handleAdminNavClick(item.path)}
+                            className="flex items-center space-x-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <item.icon size={18} />
+                            <span>{item.name}</span>
+                          </Link>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Mobile Auth */}
                 <div className="px-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -316,6 +521,11 @@ const Navbar: React.FC = () => {
                       <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
                         <User size={18} />
                         <span>{user?.name}</span>
+                        {user?.role && (
+                          <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded-full capitalize">
+                            {user.role.replace("_", " ")}
+                          </span>
+                        )}
                       </div>
                       <button
                         onClick={handleLogoutClick}

@@ -1,3 +1,4 @@
+// src/components/sections/Menu.tsx - COMPLETELY FIXED
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -7,9 +8,9 @@ import { useCart } from "../../contexts/CartContext";
 import { Search, Star, Globe, Zap, Thermometer } from "lucide-react";
 import ProtectedAction from "../auth/ProtectedAction";
 import { useAuth } from "../../contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import api from "../../utils/axios";
+import { useProducts } from "../../hooks/useProducts";
 import { CoffeeBean } from "../../types";
+import { productAdapter } from "../../utils/productAdapter";
 
 const Menu: React.FC = () => {
   const { isDark } = useTheme();
@@ -23,13 +24,25 @@ const Menu: React.FC = () => {
     "name"
   );
 
-  const { data: coffeeData = [], isLoading } = useQuery({
-    queryKey: ["coffee-products"],
-    queryFn: async (): Promise<CoffeeBean[]> => {
-      const response = await api.get("/products");
-      return response.data;
-    },
+  // استفاده از هوک برای دریافت محصولات منو
+  const { useMenuProducts } = useProducts;
+  const {
+    data: menuData,
+    isLoading,
+    error,
+  } = useMenuProducts({
+    page: 1,
+    limit: 50,
   });
+
+  // تبدیل داده‌های بکند به فرمت مورد نیاز
+  const coffeeData: CoffeeBean[] = useMemo(() => {
+    if (!menuData?.regularProducts) return [];
+
+    return menuData.regularProducts.map((product: any) =>
+      productAdapter.toFrontend(product)
+    );
+  }, [menuData]);
 
   // Structured data for SEO
   const structuredData = {
@@ -136,6 +149,7 @@ const Menu: React.FC = () => {
       name: coffee.name,
       price: coffee.price,
       image: coffee.image,
+      weight: coffee.weight,
     });
   };
 
@@ -184,6 +198,36 @@ const Menu: React.FC = () => {
       >
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center">Loading coffee products...</div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section
+        id="menu"
+        className={`py-20 ${isDark ? "bg-gray-900" : "bg-amber-50"}`}
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center">
+            <div
+              className={`p-6 rounded-2xl ${
+                isDark ? "bg-red-900/20" : "bg-red-100"
+              } border ${isDark ? "border-red-500/30" : "border-red-200"}`}
+            >
+              <h3
+                className={`text-xl font-semibold mb-2 ${
+                  isDark ? "text-red-400" : "text-red-600"
+                }`}
+              >
+                Failed to load products
+              </h3>
+              <p className={isDark ? "text-red-300" : "text-red-600"}>
+                Please try refreshing the page
+              </p>
+            </div>
+          </div>
         </div>
       </section>
     );
@@ -531,7 +575,7 @@ const Menu: React.FC = () => {
                           {coffee.flavorNotes.slice(0, 4).map((note, index) => (
                             <span
                               key={index}
-                              className={`px-2 py-1 rounded-full text-xs ${
+                              className={`px-3 py-1 rounded-full text-sm ${
                                 isDark
                                   ? "bg-amber-900/50 text-amber-300"
                                   : "bg-amber-100 text-amber-800"

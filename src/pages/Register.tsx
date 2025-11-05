@@ -38,6 +38,7 @@ const Register: React.FC = () => {
   const [localError, setLocalError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   const {
     register,
@@ -67,6 +68,16 @@ const Register: React.FC = () => {
     }
   }, [emailValue, password]);
 
+  // Redirect to email verification after successful registration
+  useEffect(() => {
+    if (isRegistered && emailValue) {
+      console.log("🚀 Redirecting to email verification page...");
+      router.push(
+        `/email-verification?email=${encodeURIComponent(emailValue)}`
+      );
+    }
+  }, [isRegistered, emailValue, router]);
+
   const onSubmit = async (data: RegisterFormData) => {
     setLocalError(null);
     clearError();
@@ -77,12 +88,20 @@ const Register: React.FC = () => {
     }
 
     try {
+      console.log("🔍 Starting registration process...");
+
       await registerUser(data.name, data.email, data.password, rememberMe);
-      // فقط اگر موفق بود redirect کن
-      router.push("/");
-    } catch (error) {
-      console.log("Register error:", error);
-      // اگر خطا داشت، صفحه رو refresh نکن
+
+      // ریدایرکت فوری به صفحه verification
+      console.log(
+        "✅ Registration successful - Redirecting to email verification"
+      );
+      window.location.href = `/email-verification?email=${encodeURIComponent(
+        data.email
+      )}`;
+    } catch (error: any) {
+      console.log("❌ Registration failed:", error);
+      setLocalError(error.message || "Registration failed");
     }
   };
 
@@ -95,7 +114,7 @@ const Register: React.FC = () => {
 
       try {
         await registerWithGoogle(codeResponse.code, rememberMe);
-        router.push("/");
+        // برای Google Auth، ریدایرکت توسط AuthContext هندل می‌شه
       } catch (error) {
         setLocalError("Google registration failed");
       } finally {
@@ -106,7 +125,7 @@ const Register: React.FC = () => {
       setLocalError("Google registration failed");
       setGoogleLoading(false);
     },
-    flow: "auth-code", // تغییر به authorization code flow
+    flow: "auth-code",
   });
 
   const handleCaptchaVerify = (token: string) => {

@@ -7,6 +7,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { CartProvider } from "../contexts/CartContext";
+import { ActiveSectionProvider } from "../contexts/ActiveSectionContext";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import "../index.css";
 
@@ -41,9 +42,11 @@ export default function RootLayout({
               <ToastProvider>
                 <AuthProvider>
                   <CartProvider>
-                    <Suspense fallback={<LoadingSpinner />}>
-                      {children}
-                    </Suspense>
+                    <ActiveSectionProvider>
+                      <Suspense fallback={<LoadingSpinner />}>
+                        {children}
+                      </Suspense>
+                    </ActiveSectionProvider>
                   </CartProvider>
                 </AuthProvider>
               </ToastProvider>

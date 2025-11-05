@@ -1,4 +1,4 @@
-// src/components/sections/Testimonials.tsx
+// src/components/sections/Testimonials.tsx - COMPLETELY FIXED
 "use client";
 
 import React, { useState } from "react";
@@ -10,19 +10,8 @@ import api from "../../utils/axios";
 import ProtectedAction from "../auth/ProtectedAction";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
-
-interface Testimonial {
-  id: number;
-  name: string;
-  text: string;
-  img: string;
-  location: string;
-  rating: number;
-  date: string;
-  verified: boolean;
-  featured: boolean;
-  status: "pending" | "approved" | "rejected";
-}
+import { Testimonial as TestimonialType } from "../../types";
+import { testimonialAdapter } from "../../utils/productAdapter";
 
 const Testimonials: React.FC = () => {
   const { isDark } = useTheme();
@@ -37,13 +26,31 @@ const Testimonials: React.FC = () => {
     location: "",
   });
 
-  // دریافت نظرات تایید شده
+  // ✅ دریافت نظرات تایید شده از route عمومی
   const { data: testimonials = [], isLoading } = useQuery({
     queryKey: ["testimonials"],
-    queryFn: async (): Promise<Testimonial[]> => {
+    queryFn: async (): Promise<TestimonialType[]> => {
       try {
-        const response = await api.get("/testimonials");
-        return response.data;
+        const response = await api.get("/testimonials/approved");
+        console.log("API Response:", response.data);
+
+        let testimonialData = [];
+
+        if (Array.isArray(response.data)) {
+          testimonialData = response.data;
+        } else if (response.data && Array.isArray(response.data.testimonials)) {
+          testimonialData = response.data.testimonials;
+        } else if (response.data && Array.isArray(response.data.data)) {
+          testimonialData = response.data.data;
+        } else {
+          console.warn("Unexpected API response structure:", response.data);
+          testimonialData = [];
+        }
+
+        // تبدیل داده‌های بکند به فرمت فرانت
+        return testimonialData.map((testimonial: any) =>
+          testimonialAdapter.toFrontend(testimonial)
+        );
       } catch (error) {
         console.error("Error fetching testimonials:", error);
         return [];
@@ -62,7 +69,6 @@ const Testimonials: React.FC = () => {
       setNewTestimonial({ name: "", text: "", rating: 5, location: "" });
       setShowForm(false);
 
-      // اضافه کردن toast موفقیت
       addToast({
         type: "success",
         title: "Review Submitted!",
@@ -74,11 +80,10 @@ const Testimonials: React.FC = () => {
       console.error("Error submitting testimonial:", error);
       const errorMessage = error.response?.data?.message || "خطا در ارسال نظر";
 
-      // اضافه کردن toast خطا
       addToast({
         type: "error",
         title: "Submission Failed",
-        message: "Please fill in all required fields",
+        message: errorMessage,
         duration: 4000,
       });
     },
@@ -87,18 +92,21 @@ const Testimonials: React.FC = () => {
   const handleSubmitTestimonial = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTestimonial.name.trim() || !newTestimonial.text.trim()) {
-      // اضافه کردن toast خطا
       addToast({
         type: "error",
-        title: "Submission Error",
-        message:
-          "An error occurred while submitting your review. Please try again.",
-        duration: 5000,
+        title: "Missing Information",
+        message: "Please fill in all required fields",
+        duration: 4000,
       });
       return;
     }
 
-    submitTestimonialMutation.mutate(newTestimonial);
+    submitTestimonialMutation.mutate({
+      name: newTestimonial.name,
+      message: newTestimonial.text, // تبدیل text به message برای بکند
+      rating: newTestimonial.rating,
+      location: newTestimonial.location,
+    });
   };
 
   // Structured data for SEO - فقط برای نظرات تایید شده
@@ -487,7 +495,7 @@ const Testimonials: React.FC = () => {
 
                       <div className="mb-4 mt-4">
                         <img
-                          src={data.img}
+                          src={data.img || "/assets/user-placeholder.jpg"}
                           alt={`${data.name}, ${data.location}`}
                           className="rounded-full w-16 h-16 mx-auto border-4 border-amber-500 shadow-lg"
                         />
@@ -547,10 +555,18 @@ const Testimonials: React.FC = () => {
                               <div className="flex items-center justify-center gap-1">
                                 <Clock size={12} />
                                 <span itemProp="datePublished">
-                                  {new Date(data.date).toLocaleDateString()}
+                                  {data.date
+                                    ? new Date(data.date).toLocaleDateString()
+                                    : "Recent"}
                                 </span>
-                                <span>•</span>
-                                <span itemProp="location">{data.location}</span>
+                                {data.location && (
+                                  <>
+                                    <span>•</span>
+                                    <span itemProp="location">
+                                      {data.location}
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
