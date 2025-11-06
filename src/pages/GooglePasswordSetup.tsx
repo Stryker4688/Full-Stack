@@ -1,4 +1,4 @@
-// src/pages/GooglePasswordSetup.tsx
+// src/pages/GooglePasswordSetup.tsx - نسخه اصلاح شده
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -44,13 +44,19 @@ const GooglePasswordSetup: React.FC = () => {
     const typeFromUrl = searchParams?.get("type") as SetupType;
     const emailFromUrl = searchParams?.get("email");
 
+    console.log("🔍 URL Parameters:", {
+      tokenFromUrl,
+      typeFromUrl,
+      emailFromUrl,
+    });
+
     if (tokenFromUrl) {
       setToken(tokenFromUrl);
 
       if (typeFromUrl === "password-reset") {
         setSetupType("password-reset");
         if (emailFromUrl) {
-          setUserInfo({ email: emailFromUrl });
+          setUserInfo({ email: decodeURIComponent(emailFromUrl) });
         }
       } else {
         setSetupType("google");
@@ -120,14 +126,22 @@ const GooglePasswordSetup: React.FC = () => {
     try {
       let response;
 
+      console.log("🚀 Starting password setup:", {
+        setupType,
+        tokenLength: token.length,
+        passwordLength: formData.password.length,
+      });
+
       if (setupType === "password-reset") {
-        // Password reset flow
+        // Password reset flow - استفاده از token به جای resetToken
+        console.log("🔐 Sending reset password request...");
         response = await api.post("/auth/reset-password", {
-          resetToken: token,
+          token: token, // ✅ اینجا باید token باشه نه resetToken
           newPassword: formData.password,
         });
       } else {
         // Google setup flow
+        console.log("🔐 Sending google setup password request...");
         response = await api.post("/auth/google/set-password", {
           tempToken: token,
           password: formData.password,
@@ -135,6 +149,7 @@ const GooglePasswordSetup: React.FC = () => {
       }
 
       const data = await response.data;
+      console.log("✅ Password setup response:", data);
 
       if (data.success) {
         if (setupType === "password-reset") {
@@ -170,7 +185,7 @@ const GooglePasswordSetup: React.FC = () => {
         throw new Error(data.message || "Failed to set password");
       }
     } catch (error: any) {
-      console.error("Password setup error:", error);
+      console.error("❌ Password setup error:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
@@ -518,3 +533,4 @@ const GooglePasswordSetup: React.FC = () => {
 };
 
 export default GooglePasswordSetup;
+  

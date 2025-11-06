@@ -1,8 +1,21 @@
-// src/pages/ResetPasswordCode.tsx
-import React, { useState, useEffect, useRef, useCallback } from "react";
+// src/pages/ResetPasswordCode.tsx - نسخه اصلاح شده
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Clock, RefreshCw, ArrowLeft, Shield } from "lucide-react";
+import {
+  Mail,
+  Clock,
+  RefreshCw,
+  ArrowLeft,
+  Shield,
+  CheckCircle,
+} from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../contexts/ToastContext";
 import api from "../utils/axios";
@@ -21,6 +34,7 @@ const ResetPasswordCode: React.FC = () => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockCountdown, setLockCountdown] = useState(0);
+  const [isVerified, setIsVerified] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -33,9 +47,12 @@ const ResetPasswordCode: React.FC = () => {
 
   useEffect(() => {
     const emailFromUrl = searchParams?.get("email");
+    console.log("📧 Email from URL:", emailFromUrl);
+
     if (emailFromUrl) {
-      setEmail(emailFromUrl);
+      setEmail(decodeURIComponent(emailFromUrl));
     } else {
+      console.log("❌ No email found in URL, redirecting...");
       router.push("/forgot-password");
     }
   }, [searchParams, router]);
@@ -68,14 +85,21 @@ const ResetPasswordCode: React.FC = () => {
   // اتوماتیک verify زمانی که همه فیلدها پر شد
   useEffect(() => {
     const fullCode = code.join("");
-    if (fullCode.length === 6 && !isLocked) {
+    console.log("🔍 Code changed:", fullCode, "Length:", fullCode.length);
+
+    if (fullCode.length === 6 && !isLocked && !isSubmitting && !isVerified) {
+      console.log("🚀 Auto-verifying code...");
       handleVerifyCode(fullCode);
     }
-  }, [code]);
+  }, [code, isLocked, isSubmitting, isVerified]);
 
   const handleVerifyCode = async (fullCode: string) => {
-    if (isSubmitting || isLocked) return;
+    if (isSubmitting || isLocked || isVerified) {
+      console.log("⏳ Already submitting, locked, or verified, skipping...");
+      return;
+    }
 
+    console.log("🔐 Starting verification...", { email, code: fullCode });
     setIsSubmitting(true);
     setError("");
 
@@ -85,8 +109,11 @@ const ResetPasswordCode: React.FC = () => {
         email: email,
       });
 
+      console.log("✅ Verification response:", response.data);
+
       if (response.data.success) {
         const resetToken = response.data.resetToken;
+        setIsVerified(true);
 
         addToast({
           type: "success",
@@ -95,20 +122,25 @@ const ResetPasswordCode: React.FC = () => {
           duration: 4000,
         });
 
-        // هدایت به صفحه تنظیم رمز عبور جدید
+        console.log("🔑 Reset token received:", resetToken);
+
+        // هدایت به صفحه تنظیم رمز عبور جدید بعد از 2 ثانیه
         setTimeout(() => {
           router.push(
             `/google-password-setup?type=password-reset&token=${encodeURIComponent(
               resetToken
             )}&email=${encodeURIComponent(email)}`
           );
-        }, 1000);
+        }, 2000);
       } else {
-        throw new Error(response.data.message);
+        throw new Error(response.data.message || "Verification failed");
       }
     } catch (error: any) {
+      console.error("❌ Verification error:", error);
+
       const errorMessage =
         error.response?.data?.message || error.message || "Verification failed";
+
       setError(errorMessage);
 
       // افزایش تعداد خطاها
@@ -138,14 +170,16 @@ const ResetPasswordCode: React.FC = () => {
 
       // کد رو پاک کن و به فیلد اول برو
       setCode(["", "", "", "", "", ""]);
-      inputRefs.current[0]?.focus();
+      setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 100);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleCodeChange = (index: number, value: string) => {
-    if (isLocked) return;
+    if (isLocked || isVerified) return;
 
     if (value.length <= 1 && /^\d*$/.test(value)) {
       const newCode = [...code];
@@ -154,23 +188,29 @@ const ResetPasswordCode: React.FC = () => {
 
       // اتوماتیک به فیلد بعدی برو
       if (value && index < 5) {
-        const nextInput = inputRefs.current[index + 1];
-        nextInput?.focus();
+        setTimeout(() => {
+          const nextInput = inputRefs.current[index + 1];
+          nextInput?.focus();
+        }, 10);
       }
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    if (isLocked) return;
+    if (isLocked || isVerified) return;
 
     e.preventDefault();
     const pastedData = e.clipboardData.getData("text");
     const numbersOnly = pastedData.replace(/\D/g, "");
 
+    console.log("📋 Paste event:", pastedData, "Numbers only:", numbersOnly);
+
     if (numbersOnly.length === 6) {
       const newCode = numbersOnly.split("").slice(0, 6);
       setCode(newCode);
-      inputRefs.current[5]?.focus();
+      setTimeout(() => {
+        inputRefs.current[5]?.focus();
+      }, 10);
     }
   };
 
@@ -182,31 +222,40 @@ const ResetPasswordCode: React.FC = () => {
   };
 
   const handleResendCode = async () => {
-    if (countdown > 0 || isLocked) return;
+    if (countdown > 0 || isLocked || isVerified) return;
+
+    console.log("🔄 Resending code to:", email);
 
     try {
       const response = await api.post("/auth/forgot-password", {
         email: email,
       });
 
+      console.log("📧 Resend response:", response.data);
+
       if (response.data.success) {
         setCountdown(60);
         setError("");
         setCode(["", "", "", "", "", ""]);
         setFailedAttempts(0);
+        setIsVerified(false);
 
-        inputRefs.current[0]?.focus();
+        setTimeout(() => {
+          inputRefs.current[0]?.focus();
+        }, 100);
 
         addToast({
           type: "success",
           title: "Code Sent! 📧",
-          message: "New reset code sent to your email",
+          message: "New verification code sent to your email",
           duration: 4000,
         });
       } else {
-        throw new Error(response.data.message);
+        throw new Error(response.data.message || "Failed to resend code");
       }
     } catch (error: any) {
+      console.error("❌ Resend error:", error);
+
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
@@ -230,6 +279,231 @@ const ResetPasswordCode: React.FC = () => {
 
   const isCodeComplete = code.every((digit) => digit !== "");
 
+  // استفاده از useMemo برای بهینه‌سازی
+  const headerSection = useMemo(
+    () => (
+      <div className="text-center">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2, type: "spring" }}
+          className="mx-auto w-16 h-16 bg-amber-500 rounded-full flex items-center justify-center mb-4"
+        >
+          <Mail className="w-8 h-8 text-white" />
+        </motion.div>
+
+        <h2
+          className={`text-3xl font-cursive font-bold mb-2 ${
+            isDark ? "text-amber-400" : "text-amber-900"
+          }`}
+        >
+          {isVerified ? "Code Verified! ✅" : "Enter Verification Code"}
+        </h2>
+
+        <p className={`mb-2 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+          {isVerified
+            ? "Redirecting to password setup..."
+            : "We sent a 6-digit code to"}
+        </p>
+
+        <p
+          className={`font-semibold text-lg mb-6 ${
+            isDark ? "text-amber-400" : "text-amber-600"
+          }`}
+        >
+          {email}
+        </p>
+
+        {/* Lock Warning */}
+        {isLocked && (
+          <div
+            className={`flex items-center justify-center gap-2 p-4 rounded-lg mb-4 ${
+              isDark
+                ? "bg-red-900/30 border border-red-700/50"
+                : "bg-red-100 border border-red-300"
+            }`}
+          >
+            <Shield
+              size={20}
+              className={isDark ? "text-red-400" : "text-red-600"}
+            />
+            <div className="text-center">
+              <p
+                className={`text-sm font-semibold ${
+                  isDark ? "text-red-300" : "text-red-700"
+                }`}
+              >
+                Account Locked 🔒
+              </p>
+              <p
+                className={`text-xs ${
+                  isDark ? "text-red-400" : "text-red-600"
+                }`}
+              >
+                Too many failed attempts. Try again in{" "}
+                {formatTime(lockCountdown)}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    ),
+    [isDark, email, isLocked, lockCountdown, isVerified]
+  );
+
+  const codeInputs = useMemo(
+    () => (
+      <div
+        className="flex justify-center space-x-2"
+        onPaste={isLocked || isVerified ? undefined : handlePaste}
+      >
+        {code.map((digit, index) => (
+          <motion.input
+            key={index}
+            ref={setInputRef(index)}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={1}
+            value={digit}
+            onChange={(e) => handleCodeChange(index, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(index, e)}
+            whileFocus={{ scale: isLocked || isVerified ? 1 : 1.05 }}
+            className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 transition-all ${
+              error && !isSubmitting
+                ? "border-red-500 focus:ring-red-500"
+                : isSubmitting
+                ? "border-blue-500 focus:ring-blue-500"
+                : isLocked || isVerified
+                ? "border-gray-400 cursor-not-allowed"
+                : isDark
+                ? "border-gray-600 focus:border-amber-500 focus:ring-amber-500"
+                : "border-gray-300 focus:border-amber-500 focus:ring-amber-500"
+            } ${isDark ? "bg-gray-700 text-white" : "bg-white text-gray-900"} ${
+              isSubmitting ? "animate-pulse" : ""
+            } ${isLocked || isVerified ? "cursor-not-allowed opacity-50" : ""}`}
+            disabled={isSubmitting || isLocked || isVerified}
+            autoFocus={index === 0 && !isLocked && !isVerified}
+          />
+        ))}
+      </div>
+    ),
+    [
+      code,
+      isDark,
+      error,
+      isSubmitting,
+      isLocked,
+      isVerified,
+      handleCodeChange,
+      handleKeyDown,
+      setInputRef,
+    ]
+  );
+
+  const statusMessages = useMemo(() => {
+    if (isVerified) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-lg bg-green-500/20 border border-green-500/30 text-green-500 text-sm text-center"
+        >
+          <div className="flex items-center justify-center gap-2">
+            <CheckCircle size={20} />
+            <span>✅ Code verified! Redirecting to password setup...</span>
+          </div>
+        </motion.div>
+      );
+    }
+
+    if (isSubmitting) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-500 text-sm text-center"
+        >
+          🔄 Verifying your code...
+        </motion.div>
+      );
+    }
+
+    if (error && !isLocked) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 text-sm text-center"
+        >
+          {error}{" "}
+          {failedAttempts > 0 && `(${3 - failedAttempts} attempts remaining)`}
+        </motion.div>
+      );
+    }
+
+    if (isCodeComplete && !error && !isLocked) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-lg bg-green-500/20 border border-green-500/30 text-green-500 text-sm text-center"
+        >
+          ✅ Code complete - Auto-verifying...
+        </motion.div>
+      );
+    }
+
+    return null;
+  }, [
+    isVerified,
+    isSubmitting,
+    error,
+    isLocked,
+    isCodeComplete,
+    failedAttempts,
+  ]);
+
+  const actionButtons = useMemo(
+    () => (
+      <div className="space-y-4">
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={countdown > 0 || isLocked || isVerified}
+            className={`flex items-center justify-center gap-2 mx-auto text-sm ${
+              countdown > 0 || isLocked || isVerified
+                ? "text-gray-500 cursor-not-allowed"
+                : isDark
+                ? "text-amber-400 hover:text-amber-300"
+                : "text-amber-600 hover:text-amber-700"
+            } transition-colors`}
+          >
+            <RefreshCw className="w-4 h-4" />
+            {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
+          </button>
+        </div>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => router.push("/forgot-password")}
+            className={`flex items-center justify-center gap-2 mx-auto text-sm ${
+              isDark
+                ? "text-gray-400 hover:text-gray-300"
+                : "text-gray-600 hover:text-gray-700"
+            } transition-colors`}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Use different email
+          </button>
+        </div>
+      </div>
+    ),
+    [countdown, isLocked, isVerified, isDark, handleResendCode, router]
+  );
+
   return (
     <div
       className={`min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 ${
@@ -248,172 +522,12 @@ const ResetPasswordCode: React.FC = () => {
           isDark ? "border-amber-500/30" : "border-amber-200"
         }`}
       >
-        <div className="text-center">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="mx-auto w-16 h-16 bg-amber-500 rounded-full flex items-center justify-center mb-4"
-          >
-            <Mail className="w-8 h-8 text-white" />
-          </motion.div>
-
-          <h2
-            className={`text-3xl font-cursive font-bold mb-2 ${
-              isDark ? "text-amber-400" : "text-amber-900"
-            }`}
-          >
-            Enter Reset Code
-          </h2>
-
-          <p className={`mb-2 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-            We sent a 6-digit code to
-          </p>
-
-          <p
-            className={`font-semibold text-lg mb-6 ${
-              isDark ? "text-amber-400" : "text-amber-600"
-            }`}
-          >
-            {email}
-          </p>
-
-          {/* Lock Warning */}
-          {isLocked && (
-            <div
-              className={`flex items-center justify-center gap-2 p-4 rounded-lg mb-4 ${
-                isDark
-                  ? "bg-red-900/30 border border-red-700/50"
-                  : "bg-red-100 border border-red-300"
-              }`}
-            >
-              <Shield
-                size={20}
-                className={isDark ? "text-red-400" : "text-red-600"}
-              />
-              <div className="text-center">
-                <p
-                  className={`text-sm font-semibold ${
-                    isDark ? "text-red-300" : "text-red-700"
-                  }`}
-                >
-                  Account Locked 🔒
-                </p>
-                <p
-                  className={`text-xs ${
-                    isDark ? "text-red-400" : "text-red-600"
-                  }`}
-                >
-                  Too many failed attempts. Try again in{" "}
-                  {formatTime(lockCountdown)}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        {headerSection}
 
         <div className="space-y-6">
-          <div
-            className="flex justify-center space-x-2"
-            onPaste={isLocked ? undefined : handlePaste}
-          >
-            {code.map((digit, index) => (
-              <motion.input
-                key={index}
-                ref={setInputRef(index)}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleCodeChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                whileFocus={{ scale: isLocked ? 1 : 1.05 }}
-                className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  error && !isSubmitting
-                    ? "border-red-500 focus:ring-red-500"
-                    : isSubmitting
-                    ? "border-blue-500 focus:ring-blue-500"
-                    : isLocked
-                    ? "border-gray-400 cursor-not-allowed"
-                    : isDark
-                    ? "border-gray-600 focus:border-amber-500 focus:ring-amber-500"
-                    : "border-gray-300 focus:border-amber-500 focus:ring-amber-500"
-                } ${
-                  isDark ? "bg-gray-700 text-white" : "bg-white text-gray-900"
-                } ${isSubmitting ? "animate-pulse" : ""} ${
-                  isLocked ? "cursor-not-allowed opacity-50" : ""
-                }`}
-                disabled={isSubmitting || isLocked}
-                autoFocus={index === 0 && !isLocked}
-              />
-            ))}
-          </div>
-
-          {error && !isLocked && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 text-sm text-center"
-            >
-              {error}{" "}
-              {failedAttempts > 0 &&
-                `(${3 - failedAttempts} attempts remaining)`}
-            </motion.div>
-          )}
-
-          {isSubmitting && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-500 text-sm text-center"
-            >
-              🔄 Verifying your code...
-            </motion.div>
-          )}
-
-          {isCodeComplete && !isSubmitting && !error && !isLocked && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg bg-green-500/20 border border-green-500/30 text-green-500 text-sm text-center"
-            >
-              ✅ Code complete - Verifying...
-            </motion.div>
-          )}
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={handleResendCode}
-              disabled={countdown > 0 || isLocked}
-              className={`flex items-center justify-center gap-2 mx-auto text-sm ${
-                countdown > 0 || isLocked
-                  ? "text-gray-500 cursor-not-allowed"
-                  : isDark
-                  ? "text-amber-400 hover:text-amber-300"
-                  : "text-amber-600 hover:text-amber-700"
-              } transition-colors`}
-            >
-              <RefreshCw className="w-4 h-4" />
-              {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
-            </button>
-          </div>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => router.push("/forgot-password")}
-              className={`flex items-center justify-center gap-2 mx-auto text-sm ${
-                isDark
-                  ? "text-gray-400 hover:text-gray-300"
-                  : "text-gray-600 hover:text-gray-700"
-              } transition-colors`}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Use different email
-            </button>
-          </div>
+          {!isVerified && codeInputs}
+          {statusMessages}
+          {!isVerified && actionButtons}
         </div>
       </motion.div>
     </div>

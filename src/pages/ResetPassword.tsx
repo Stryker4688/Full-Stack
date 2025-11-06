@@ -1,100 +1,208 @@
-// src/pages/ResetPassword.tsx
-import React, { useState, useEffect } from "react";
+// src/pages/ResetPasswordCode.tsx - نسخه نهایی
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, Eye, EyeOff, Check, AlertCircle, Coffee } from "lucide-react";
+import { Mail, Clock, RefreshCw, ArrowLeft, Shield } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../contexts/ToastContext";
 import api from "../utils/axios";
 
-const ResetPassword: React.FC = () => {
+const ResetPasswordCode: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isDark } = useTheme();
   const { addToast } = useToast();
 
-  const [formData, setFormData] = useState({
-    password: "",
-    confirmPassword: "",
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [email, setEmail] = useState("");
+  const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resetToken, setResetToken] = useState("");
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockCountdown, setLockCountdown] = useState(0);
+
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const setInputRef = useCallback(
+    (index: number) => (el: HTMLInputElement | null) => {
+      inputRefs.current[index] = el;
+    },
+    []
+  );
 
   useEffect(() => {
-    const tokenFromUrl = searchParams?.get("token");
-    if (tokenFromUrl) {
-      setResetToken(tokenFromUrl);
+    const emailFromUrl = searchParams?.get("email");
+    if (emailFromUrl) {
+      setEmail(emailFromUrl);
     } else {
       router.push("/forgot-password");
     }
   }, [searchParams, router]);
 
-  const passwordStrength = {
-    length: formData.password.length >= 6,
-    lowercase: /(?=.*[a-z])/.test(formData.password),
-    uppercase: /(?=.*[A-Z])/.test(formData.password),
-    number: /(?=.*\d)/.test(formData.password),
-  };
-
-  const isPasswordStrong = Object.values(passwordStrength).every(Boolean);
-  const passwordsMatch = formData.password === formData.confirmPassword;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setError("");
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (!formData.password || !formData.confirmPassword) {
-      setError("Please fill in all fields");
-      return;
+  // Countdown برای resend code
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
     }
+  }, [countdown]);
 
-    if (!isPasswordStrong) {
-      setError("Please meet all password requirements");
-      return;
+  // Countdown برای lock
+  useEffect(() => {
+    if (lockCountdown > 0) {
+      const timer = setTimeout(() => setLockCountdown(lockCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (isLocked && lockCountdown === 0) {
+      setIsLocked(false);
+      setFailedAttempts(0);
+      addToast({
+        type: "info",
+        title: "Lock Lifted",
+        message: "You can try verifying again",
+        duration: 3000,
+      });
     }
+  }, [lockCountdown, isLocked, addToast]);
 
-    if (!passwordsMatch) {
-      setError("Passwords do not match");
-      return;
+  // اتوماتیک verify زمانی که همه فیلدها پر شد
+  useEffect(() => {
+    const fullCode = code.join("");
+    if (fullCode.length === 6 && !isLocked) {
+      handleVerifyCode(fullCode);
     }
+  }, [code]);
 
-    if (!resetToken) {
-      setError("Invalid reset session. Please start over.");
-      return;
-    }
+  const handleVerifyCode = async (fullCode: string) => {
+    if (isSubmitting || isLocked) return;
 
     setIsSubmitting(true);
+    setError("");
 
     try {
-      const response = await api.post("/auth/reset-password", {
-        resetToken,
-        newPassword: formData.password,
+      const response = await api.post("/auth/verify-reset-code", {
+        code: fullCode,
+        email: email,
       });
 
       if (response.data.success) {
+        const resetToken = response.data.resetToken;
+
         addToast({
           type: "success",
-          title: "Password Updated! ✅",
-          message: "Your password has been reset successfully",
-          duration: 5000,
+          title: "Code Verified! ✅",
+          message: "You can now set your new password",
+          duration: 4000,
         });
 
-        // ریدایرکت به صفحه لاگین بعد از موفقیت
+        // هدایت به صفحه تنظیم رمز عبور جدید
         setTimeout(() => {
-          router.push("/login");
-        }, 2000);
+          router.push(
+            `/google-password-setup?type=password-reset&token=${encodeURIComponent(
+              resetToken
+            )}&email=${encodeURIComponent(email)}`
+          );
+        }, 1000);
+      } else {
+        throw new Error(response.data.message);
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message || error.message || "Verification failed";
+      setError(errorMessage);
+
+      // افزایش تعداد خطاها
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
+
+      // اگر 3 بار خطا کرد، قفل کن
+      if (newFailedAttempts >= 3) {
+        setIsLocked(true);
+        setLockCountdown(300); // 5 دقیقه
+        addToast({
+          type: "error",
+          title: "Account Locked 🔒",
+          message: "Too many failed attempts. Please wait 5 minutes.",
+          duration: 5000,
+        });
+      } else {
+        addToast({
+          type: "error",
+          title: "Verification Failed",
+          message: `${errorMessage} (${
+            3 - newFailedAttempts
+          } attempts remaining)`,
+          duration: 5000,
+        });
+      }
+
+      // کد رو پاک کن و به فیلد اول برو
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCodeChange = (index: number, value: string) => {
+    if (isLocked) return;
+
+    if (value.length <= 1 && /^\d*$/.test(value)) {
+      const newCode = [...code];
+      newCode[index] = value;
+      setCode(newCode);
+
+      // اتوماتیک به فیلد بعدی برو
+      if (value && index < 5) {
+        const nextInput = inputRefs.current[index + 1];
+        nextInput?.focus();
+      }
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (isLocked) return;
+
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text");
+    const numbersOnly = pastedData.replace(/\D/g, "");
+
+    if (numbersOnly.length === 6) {
+      const newCode = numbersOnly.split("").slice(0, 6);
+      setCode(newCode);
+      inputRefs.current[5]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !code[index] && index > 0) {
+      const prevInput = inputRefs.current[index - 1];
+      prevInput?.focus();
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (countdown > 0 || isLocked) return;
+
+    try {
+      const response = await api.post("/auth/forgot-password", {
+        email: email,
+      });
+
+      if (response.data.success) {
+        setCountdown(60);
+        setError("");
+        setCode(["", "", "", "", "", ""]);
+        setFailedAttempts(0);
+
+        inputRefs.current[0]?.focus();
+
+        addToast({
+          type: "success",
+          title: "Code Sent! 📧",
+          message: "New reset code sent to your email",
+          duration: 4000,
+        });
       } else {
         throw new Error(response.data.message);
       }
@@ -102,18 +210,25 @@ const ResetPassword: React.FC = () => {
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        "Failed to reset password";
+        "Failed to resend code";
       setError(errorMessage);
+
       addToast({
         type: "error",
-        title: "Reset Failed",
+        title: "Resend Failed",
         message: errorMessage,
         duration: 5000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const isCodeComplete = code.every((digit) => digit !== "");
 
   return (
     <div
@@ -140,7 +255,7 @@ const ResetPassword: React.FC = () => {
             transition={{ delay: 0.2, type: "spring" }}
             className="mx-auto w-16 h-16 bg-amber-500 rounded-full flex items-center justify-center mb-4"
           >
-            <Coffee className="w-8 h-8 text-white" />
+            <Mail className="w-8 h-8 text-white" />
           </motion.div>
 
           <h2
@@ -148,230 +263,161 @@ const ResetPassword: React.FC = () => {
               isDark ? "text-amber-400" : "text-amber-900"
             }`}
           >
-            New Password
+            Enter Reset Code
           </h2>
 
-          <p className={`mb-6 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-            Create a new password for your account
+          <p className={`mb-2 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+            We sent a 6-digit code to
           </p>
-        </div>
 
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Password Field */}
-          <div>
-            <label
-              htmlFor="password"
-              className={`block text-sm font-medium mb-2 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              New Password
-            </label>
-            <div className="relative">
-              <Lock
-                className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${
-                  isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-                size={20}
-              />
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full pl-12 pr-12 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 transition-all duration-300 ${
-                  error && !isPasswordStrong
-                    ? "border-red-500 focus:ring-red-500"
-                    : isDark
-                    ? "border-gray-600 focus:border-amber-500 focus:ring-amber-500"
-                    : "border-gray-300 focus:border-amber-500 focus:ring-amber-500"
-                } ${
-                  isDark
-                    ? "bg-gray-700 text-white placeholder-gray-400"
-                    : "bg-white text-gray-900 placeholder-gray-500"
-                }`}
-                placeholder="Create a secure password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
-                  isDark
-                    ? "text-gray-400 hover:text-gray-300"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
+          <p
+            className={`font-semibold text-lg mb-6 ${
+              isDark ? "text-amber-400" : "text-amber-600"
+            }`}
+          >
+            {email}
+          </p>
 
-          {/* Confirm Password Field */}
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className={`block text-sm font-medium mb-2 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Confirm Password
-            </label>
-            <div className="relative">
-              <Lock
-                className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${
-                  isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-                size={20}
-              />
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={`w-full pl-12 pr-12 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 transition-all duration-300 ${
-                  error && !passwordsMatch
-                    ? "border-red-500 focus:ring-red-500"
-                    : isDark
-                    ? "border-gray-600 focus:border-amber-500 focus:ring-amber-500"
-                    : "border-gray-300 focus:border-amber-500 focus:ring-amber-500"
-                } ${
-                  isDark
-                    ? "bg-gray-700 text-white placeholder-gray-400"
-                    : "bg-white text-gray-900 placeholder-gray-500"
-                }`}
-                placeholder="Confirm your password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
-                  isDark
-                    ? "text-gray-400 hover:text-gray-300"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Password Strength Indicator */}
-          {formData.password && (
+          {/* Lock Warning */}
+          {isLocked && (
             <div
-              className={`p-4 rounded-lg text-sm ${
+              className={`flex items-center justify-center gap-2 p-4 rounded-lg mb-4 ${
                 isDark
-                  ? "bg-gray-700/50 text-gray-300"
-                  : "bg-amber-50 text-gray-600"
+                  ? "bg-red-900/30 border border-red-700/50"
+                  : "bg-red-100 border border-red-300"
               }`}
             >
-              <p className="font-semibold mb-2">Password Requirements:</p>
-              <ul className="space-y-1">
-                <li
-                  className={`flex items-center gap-2 ${
-                    passwordStrength.length ? "text-green-500" : "text-red-500"
+              <Shield
+                size={20}
+                className={isDark ? "text-red-400" : "text-red-600"}
+              />
+              <div className="text-center">
+                <p
+                  className={`text-sm font-semibold ${
+                    isDark ? "text-red-300" : "text-red-700"
                   }`}
                 >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      passwordStrength.length ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  />
-                  At least 6 characters
-                </li>
-                <li
-                  className={`flex items-center gap-2 ${
-                    passwordStrength.lowercase
-                      ? "text-green-500"
-                      : "text-red-500"
+                  Account Locked 🔒
+                </p>
+                <p
+                  className={`text-xs ${
+                    isDark ? "text-red-400" : "text-red-600"
                   }`}
                 >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      passwordStrength.lowercase ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  />
-                  One lowercase letter
-                </li>
-                <li
-                  className={`flex items-center gap-2 ${
-                    passwordStrength.uppercase
-                      ? "text-green-500"
-                      : "text-red-500"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      passwordStrength.uppercase ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  />
-                  One uppercase letter
-                </li>
-                <li
-                  className={`flex items-center gap-2 ${
-                    passwordStrength.number ? "text-green-500" : "text-red-500"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      passwordStrength.number ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  />
-                  One number
-                </li>
-              </ul>
+                  Too many failed attempts. Try again in{" "}
+                  {formatTime(lockCountdown)}
+                </p>
+              </div>
             </div>
           )}
+        </div>
 
-          {/* Error Display */}
-          {error && (
+        <div className="space-y-6">
+          <div
+            className="flex justify-center space-x-2"
+            onPaste={isLocked ? undefined : handlePaste}
+          >
+            {code.map((digit, index) => (
+              <motion.input
+                key={index}
+                ref={setInputRef(index)}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleCodeChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                whileFocus={{ scale: isLocked ? 1 : 1.05 }}
+                className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                  error && !isSubmitting
+                    ? "border-red-500 focus:ring-red-500"
+                    : isSubmitting
+                    ? "border-blue-500 focus:ring-blue-500"
+                    : isLocked
+                    ? "border-gray-400 cursor-not-allowed"
+                    : isDark
+                    ? "border-gray-600 focus:border-amber-500 focus:ring-amber-500"
+                    : "border-gray-300 focus:border-amber-500 focus:ring-amber-500"
+                } ${
+                  isDark ? "bg-gray-700 text-white" : "bg-white text-gray-900"
+                } ${isSubmitting ? "animate-pulse" : ""} ${
+                  isLocked ? "cursor-not-allowed opacity-50" : ""
+                }`}
+                disabled={isSubmitting || isLocked}
+                autoFocus={index === 0 && !isLocked}
+              />
+            ))}
+          </div>
+
+          {error && !isLocked && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 text-sm flex items-center gap-2"
+              className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 text-sm text-center"
             >
-              <AlertCircle size={16} />
-              {error}
+              {error}{" "}
+              {failedAttempts > 0 &&
+                `(${3 - failedAttempts} attempts remaining)`}
             </motion.div>
           )}
 
-          {/* Submit Button */}
-          <motion.button
-            type="submit"
-            disabled={isSubmitting || !isPasswordStrong || !passwordsMatch}
-            whileHover={{
-              scale:
-                isSubmitting || !isPasswordStrong || !passwordsMatch ? 1 : 1.02,
-            }}
-            whileTap={{
-              scale:
-                isSubmitting || !isPasswordStrong || !passwordsMatch ? 1 : 0.98,
-            }}
-            className={`w-full py-3 px-4 rounded-lg font-semibold text-lg transition-all duration-300 ${
-              isSubmitting || !isPasswordStrong || !passwordsMatch
-                ? "bg-gray-400 cursor-not-allowed text-gray-200"
-                : isDark
-                ? "bg-amber-600 hover:bg-amber-500 text-white"
-                : "bg-amber-900 hover:bg-amber-800 text-white"
-            } flex items-center justify-center gap-2`}
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Resetting...
-              </>
-            ) : (
-              <>
-                <Check size={20} />
-                Reset Password
-              </>
-            )}
-          </motion.button>
-        </form>
+          {isSubmitting && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-500 text-sm text-center"
+            >
+              🔄 Verifying your code...
+            </motion.div>
+          )}
+
+          {isCodeComplete && !isSubmitting && !error && !isLocked && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-lg bg-green-500/20 border border-green-500/30 text-green-500 text-sm text-center"
+            >
+              ✅ Code complete - Verifying...
+            </motion.div>
+          )}
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={countdown > 0 || isLocked}
+              className={`flex items-center justify-center gap-2 mx-auto text-sm ${
+                countdown > 0 || isLocked
+                  ? "text-gray-500 cursor-not-allowed"
+                  : isDark
+                  ? "text-amber-400 hover:text-amber-300"
+                  : "text-amber-600 hover:text-amber-700"
+              } transition-colors`}
+            >
+              <RefreshCw className="w-4 h-4" />
+              {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => router.push("/forgot-password")}
+              className={`flex items-center justify-center gap-2 mx-auto text-sm ${
+                isDark
+                  ? "text-gray-400 hover:text-gray-300"
+                  : "text-gray-600 hover:text-gray-700"
+              } transition-colors`}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Use different email
+            </button>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
 };
 
-export default ResetPassword;
+export default ResetPasswordCode;
