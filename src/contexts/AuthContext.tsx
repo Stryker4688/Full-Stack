@@ -38,6 +38,8 @@ interface AuthContextType {
   clearError: () => void;
   sendVerificationEmail: () => Promise<void>;
   verifyEmail: (code: string) => Promise<void>;
+  verifyUser: () => Promise<void>;
+  isSuperAdmin: () => boolean; // اضافه شد
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const queryClient = useQueryClient();
   const router = useRouter();
   const { addToast } = useToast();
@@ -60,17 +63,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setToken(savedToken);
       try {
         setUser(JSON.parse(savedUser));
+        verifyUserMutation.mutate();
       } catch (e) {
         console.error("Error parsing saved user:", e);
         localStorage.removeItem("user");
         localStorage.removeItem("authToken");
+        setInitialLoading(false);
       }
+    } else {
+      setInitialLoading(false);
     }
   }, []);
 
   const clearError = () => setError(null);
 
-  // Login mutation
+  // اضافه شد: تابع چک کردن سوپر ادمین
+  const isSuperAdmin = (): boolean => {
+    return user?.role === "super_admin";
+  };
+
+  const verifyUserMutation = useMutation({
+    mutationFn: async (): Promise<{ success: boolean; user: User }> => {
+      const response = await api.get("/auth/verify");
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log("✅ User verification successful:", data.user);
+      if (data.success && data.user) {
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        queryClient.setQueryData(["user"], data.user);
+      }
+      setInitialLoading(false);
+    },
+    onError: (error: any) => {
+      console.error("❌ User verification failed:", error);
+      if (error.response?.status === 401 || error.response?.status === 404) {
+        logout();
+      }
+      setInitialLoading(false);
+    },
+  });
+
   const loginMutation = useMutation({
     mutationFn: async (credentials: {
       email: string;
@@ -83,21 +117,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     onSuccess: (data, variables) => {
       console.log("✅ Login success - Data:", data);
 
-      // اگر ایمیل تأیید نشده باشد
       if (data.message === "email-not-verified") {
         console.log("📧 Email not verified - redirecting to verification page");
-
-        // ذخیره ایمیل برای صفحه verification
         localStorage.setItem("pendingVerificationEmail", variables.email);
-
-        // ریدایرکت به صفحه verification
         window.location.href = `/email-verification?email=${encodeURIComponent(
           variables.email
         )}`;
         return;
       }
 
-      // اگر لاگین موفق بود
       console.log("✅ Login successful - setting token and user");
       setToken(data.token);
       setUser(data.user);
@@ -116,7 +144,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     onError: (error: any) => {
       console.log("❌ Login error:", error);
 
-      // اگر خطای ایمیل تأیید نشده از سمت سرور برگردد
       if (error.response?.data?.message === "email-not-verified") {
         const email = error.response?.data?.email;
         if (email) {
@@ -142,7 +169,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Register mutation - FIXED: No automatic redirect
   const registerMutation = useMutation({
     mutationFn: async (userData: {
       name: string;
@@ -155,14 +181,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     onSuccess: (data, variables) => {
       console.log("✅ Register success - Data:", data);
-
-      // ❌ هیچ توکنی ذخیره نکن - کاربر باید اول ایمیل رو verify کنه
       setError(null);
-
-      // فقط ایمیل رو برای ریدایرکت ذخیره کن
       localStorage.setItem("pendingVerificationEmail", variables.email);
-
-      // ❌ تاست رو حذف کردیم - کاربر مستقیماً به صفحه verification میره
       console.log(
         "✅ Registration completed - Redirecting to email verification"
       );
@@ -181,7 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Send Verification Email mutation
   const sendVerificationEmailMutation = useMutation({
     mutationFn: async () => {
       const response = await api.post("/auth/send-verification");
@@ -208,7 +227,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Verify Email mutation
   const verifyEmailMutation = useMutation({
     mutationFn: async (code: string) => {
       console.log("🔍 Sending verification code to backend:", code);
@@ -216,7 +234,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return response.data;
     },
     onSuccess: (data) => {
-      // آپدیت وضعیت کاربر
       if (user) {
         const updatedUser = { ...user, emailVerified: true };
         setUser(updatedUser);
@@ -243,7 +260,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Google Auth mutations
   const loginWithGoogleMutation = useMutation({
     mutationFn: async (credentials: { code: string; rememberMe?: boolean }) => {
       const response = await api.post("/auth/google", {
@@ -253,23 +269,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return response.data;
     },
     onSuccess: (data) => {
-      // 🔥 هندل کردن وضعیت google_registration_pending برای login هم
       if (
         data.action === "google_registration_pending" ||
         data.requiresPasswordSetup
       ) {
         console.log("🔍 Google user requires password setup - redirecting...");
-
         const params = new URLSearchParams();
         if (data.tempToken) params.append("token", data.tempToken);
         if (data.email) params.append("email", data.email);
         params.append("type", "google");
-
         window.location.href = `/google-password-setup?${params.toString()}`;
         return;
       }
 
-      // لاگین معمولی
       setToken(data.token);
       setUser(data.user);
       setError(null);
@@ -308,27 +320,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     onSuccess: (data) => {
       console.log("✅ Google register response:", data);
 
-      // 🔥 هندل کردن وضعیت google_registration_pending
       if (
         data.action === "google_registration_pending" ||
         data.requiresPasswordSetup
       ) {
         console.log("🔍 Google user requires password setup - redirecting...");
-
-        // ساخت URL برای صفحه تنظیم رمز عبور
         const params = new URLSearchParams();
         if (data.tempToken) params.append("token", data.tempToken);
         if (data.email) params.append("email", data.email);
         params.append("type", "google");
-
         window.location.href = `/google-password-setup?${params.toString()}`;
         return;
       }
 
-      // در غیر این صورت، ثبت‌نام معمولی
       console.log("✅ Google registration successful - setting token and user");
-
-      // ذخیره توکن و کاربر
       setToken(data.token);
       setUser(data.user);
       setError(null);
@@ -343,7 +348,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         duration: 4000,
       });
 
-      // ریدایرکت به صفحه اصلی
       console.log("🚀 Redirecting to home page...");
       setTimeout(() => {
         window.location.href = "/";
@@ -363,7 +367,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   });
 
-  // Functions
   const login = async (
     email: string,
     password: string,
@@ -425,6 +428,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     await verifyEmailMutation.mutateAsync(code);
   };
 
+  const verifyUser = async (): Promise<void> => {
+    clearError();
+    await verifyUserMutation.mutateAsync();
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -444,12 +452,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const loading =
+    initialLoading ||
     loginMutation.isPending ||
     registerMutation.isPending ||
     loginWithGoogleMutation.isPending ||
     registerWithGoogleMutation.isPending ||
     sendVerificationEmailMutation.isPending ||
-    verifyEmailMutation.isPending;
+    verifyEmailMutation.isPending ||
+    verifyUserMutation.isPending;
 
   const isAuthenticated = !!user && !!token;
 
@@ -467,6 +477,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearError,
     sendVerificationEmail,
     verifyEmail,
+    verifyUser,
+    isSuperAdmin, // اضافه شد
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
