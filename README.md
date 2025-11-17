@@ -1,6 +1,7 @@
 # Nextjs + Vite
 
-1 - Create file .env.local
+1 - Create file .env.local  
+
 2 - Set this variables
 
 # .env.local
