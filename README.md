@@ -11,6 +11,7 @@ VITE_APP_NAME=Brew Haven
 
 
 NEXT_PUBLIC_GOOGLE_CLIENT_ID =
+
 "1086900138391-q4pgm81edia2lg4so18cbtoioub3fq0b.apps.googleusercontent.com" || your google client id
 
 NEXT_PUBLIC_TURNSTILE_SITE_KEY = "0x4AAAAAAB6gtFRum7vmTZFU" || your turnsile id
